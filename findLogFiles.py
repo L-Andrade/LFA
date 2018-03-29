@@ -94,6 +94,8 @@ class FindLogFilesIngestModule(FileIngestModule):
     # TODO: Add any setup code that you need here.
     def startUp(self, context):
         self.filesFound = 0
+        self.dmpFilesFound = 0
+        self.logFilesFound = 0
 
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException("Oh No!")
@@ -115,9 +117,15 @@ class FindLogFilesIngestModule(FileIngestModule):
 
         # For an example, we will flag files with .txt in the name and make a blackboard artifact.
         # Actually getting .dmp files...
-        if file.getName().lower().endswith(".dmp"):
-
-            self.log(Level.INFO, "Found a dmp file: " + file.getName())
+        if file.getName().lower().endswith(".dmp") or file.getName().lower().endswith(".log"):
+            
+            if file.getName().lower().endswith(".dmp"):
+                self.log(Level.INFO, "Found a dmp file: " + file.getName())
+                self.dmpFilesFound+=1
+            if file.getName().lower().endswith(".log"):
+                self.log(Level.INFO, "Found a log file: " + file.getName())
+                self.logFilesFound+=1
+                
             self.filesFound+=1
 
             # Make an artifact on the blackboard.  TSK_INTERESTING_FILE_HIT is a generic type of
@@ -164,5 +172,7 @@ class FindLogFilesIngestModule(FileIngestModule):
         # As a final part of this example, we'll send a message to the ingest inbox with the number of files found (in this thread)
         message = IngestMessage.createMessage(
             IngestMessage.MessageType.DATA, FindLogFilesIngestModuleFactory.moduleName,
-                str(self.filesFound) + " files found")
+                str(self.filesFound) + " total files found.\n"
+                +str(self.dmpFilesFound)+" dmp files found.\n"
+                +str(self.logFilesFound)+" log files found.")
         ingestServices = IngestServices.getInstance().postMessage(message)
