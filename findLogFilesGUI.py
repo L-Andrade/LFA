@@ -40,10 +40,17 @@
 
 import jarray
 import inspect
+import os
 from java.lang import System
 from java.util.logging import Level
 from javax.swing import JCheckBox
 from javax.swing import BoxLayout
+from javax.swing import JLabel
+from java.lang import Class
+from java.lang import System
+from java.io import File
+from java.sql import DriverManager, SQLException
+
 from org.sleuthkit.autopsy.casemodule import Case
 from org.sleuthkit.autopsy.casemodule.services import Services
 from org.sleuthkit.autopsy.casemodule.services import FileManager
@@ -265,13 +272,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettings(IngestModuleIngestJob
     serialVersionUID = 1L
 
     def __init__(self):
-        self.checkWER = False
-        self.checkETL = False
+        pass
 
     def getVersionNumber(self):
         return serialVersionUID
 
-    # TODO: Define getters and settings for data you want to store from UI
     def getCheckWER(self):
         return self.checkWER
 
@@ -305,32 +310,85 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.initComponents()
         self.customizeComponents()
 
-    # TODO: Update this for your UI
     def checkBoxEventWER(self, event):
-        if self.checkboxWER.isSelected():
-            self.local_settings.setCheckWER(True)
-        else:
-            self.local_settings.setCheckWER(False)
+        self.local_settings.setCheckETL(self.checkboxWER.isSelected())
+        self.saveFlagSetting("checkWER", self.checkboxWER.isSelected())
 
     def checkBoxEventETL(self, event):
-        if self.checkboxETL.isSelected():
-            self.local_settings.setCheckETL(True)
-        else:
-            self.local_settings.setCheckETL(False)
+        self.local_settings.setCheckETL(self.checkboxETL.isSelected())
+        self.saveFlagSetting("checkETL", self.checkboxETL.isSelected())
 
     # TODO: Update this for your UI
     def initComponents(self):
         self.setLayout(BoxLayout(self, BoxLayout.Y_AXIS))
+
+        self.labelCheckText = JLabel("Check for type files: ")
+        self.labelCheckText.setEnabled(True)
+        self.errorMessageLabel = JLabel(" ")
+        self.errorMessageLabel.setEnabled(True)
+
         self.checkboxWER = JCheckBox("WER", actionPerformed=self.checkBoxEventWER)
         self.checkboxETL = JCheckBox("ETL", actionPerformed=self.checkBoxEventETL)
+
+        self.add(self.labelCheckText)
         self.add(self.checkboxWER)
         self.add(self.checkboxETL)
+        self.add(self.errorMessageLabel)
 
     # TODO: Update this for your UI
     def customizeComponents(self):
-        self.checkboxWER.setSelected(self.local_settings.getCheckWER())
-        self.checkboxETL.setSelected(self.local_settings.getCheckETL())
+        self.checkDatabaseEntries()
 
     # Return the settings used
     def getSettings(self):
         return self.local_settings
+
+    def checkDatabaseEntries(self):
+        head, tail = os.path.split(os.path.abspath(__file__)) 
+        settings_db = head + "\\guiSettings.db"
+        try: 
+            Class.forName("org.sqlite.JDBC").newInstance()
+            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
+        except SQLException as e:
+            self.errorMessageLabel.setText("Error opening database!")
+ 
+        try:
+            stmt = dbConn.createStatement()
+            query = 'SELECT checkWER, checkETL FROM settings WHERE id = 1;' 
+            resultSet = stmt.executeQuery(query)
+            while resultSet.next():
+                self.checkboxWER.setSelected((resultSet.getInt("checkWER")>0))
+                self.checkboxETL.setSelected((resultSet.getInt("checkETL")>0))
+            self.local_settings.setCheckWER(True)
+            self.errorMessageLabel.setText("Settings read successfully!")
+        except SQLException as e:
+            self.errorMessageLabel.setText("Could not read settings")
+
+        stmt.close()
+        dbConn.close()
+
+    def saveFlagSetting(self, flag, value):
+        
+        head, tail = os.path.split(os.path.abspath(__file__)) 
+        settings_db = head + "\\guiSettings.db"
+        try: 
+            Class.forName("org.sqlite.JDBC").newInstance()
+            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
+        except SQLException as e:
+            self.errorMessageLabel.setText("Error opening settings")
+        
+        if value:
+            int_value = 1
+        else:
+            int_value = 0
+
+        try:
+            stmt = dbConn.createStatement()
+            query = 'UPDATE settings SET ' + flag + ' = ' + str(int_value) + ' WHERE id = 1;'
+           
+            stmt.executeUpdate(query)
+            self.errorMessageLabel.setText("Saved setting")
+        except SQLException as e:
+            self.errorMessageLabel.setText("Error saving settings "+str(e))
+        stmt.close()
+        dbConn.close()
