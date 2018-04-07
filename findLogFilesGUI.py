@@ -138,17 +138,14 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
     def startUp(self, context):
         # For statistics purposes
         self.filesFound = 0
-        self.etlFilesFound = 0
-        self.werFilesFound = 0
-        # As an example, determine if user configured a flag in UI
-        if self.local_settings.getCheckWER():
-            self.log(Level.INFO, "Looking for WER")
-        else:
-            self.log(Level.INFO, "Not looking for WER")
+
+        # if self.local_settings.getCheckWER():
+        #     self.log(Level.INFO, "Looking for WER")
+        # else:
+        #     self.log(Level.INFO, "Not looking for WER")
 
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException("Oh No!")
-        pass
 
     # Where the analysis is done.  Each file will be passed into here.
     # TODO: Add your analysis code in here.
@@ -198,15 +195,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
         # For an example, we will flag files with .txt in the name and make a blackboard artifact.
         # Actually getting .dmp files...
-        if (file.getName().lower().endswith(".etl") and self.local_settings.getCheckETL()) or (file.getName().lower().endswith(".wer") and self.local_settings.getCheckWER()):
-            
-            if file.getName().lower().endswith(".etl"):
-                self.log(Level.INFO, "Found a etl file: " + file.getName())
-                self.etlFilesFound+=1
-            if file.getName().lower().endswith(".wer"):
-                self.log(Level.INFO, "Found a wer file: " + file.getName())
-                self.werFilesFound+=1
-                
+        if (file.getName().lower().endswith(".etl") and self.local_settings.getCheckETL()) or (file.getName().lower().endswith(".wer") and self.local_settings.getCheckWER()) or (file.getName().lower().endswith(".dmp") and self.local_settings.getCheckDmp()) or (file.getName().lower().endswith(".evtx") and self.local_settings.getCheckEVTx()) or (file.getName().lower().endswith(".log") and self.local_settings.getCheckLog()):
+                           
             self.filesFound+=1
 
             
@@ -254,16 +244,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
     # TODO: Add any shutdown code that you need here.
     def shutDown(self):
         # Inform user of number of files found
-        messages = [IngestMessage.createMessage(
-            IngestMessage.MessageType.DATA, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                str(self.filesFound) + " total files found."), IngestMessage.createMessage(
-            IngestMessage.MessageType.DATA, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                str(self.werFilesFound) + " wer files found."), IngestMessage.createMessage(
-            IngestMessage.MessageType.DATA, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                str(self.etlFilesFound) + " etl files found.")]
+        message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
+                LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
+                str(self.filesFound) + " total files found.")
 
-        for msg in messages:
-            ingestServices = IngestServices.getInstance().postMessage(msg)
+        ingestServices = IngestServices.getInstance().postMessage(message)
 
 # Stores the settings that can be changed for each ingest job
 # All fields in here must be serializable.  It will be written to disk.
@@ -289,6 +274,23 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettings(IngestModuleIngestJob
     def setCheckETL(self, checkETL):
         self.checkETL = checkETL
 
+    def getCheckLog(self):
+        return self.checkLog
+
+    def setCheckLog(self, checkLog):
+        self.checkLog = checkLog
+
+    def getCheckDmp(self):
+        return self.checkDmp
+
+    def setCheckDmp(self, checkDmp):
+        self.checkDmp = checkDmp
+
+    def getCheckEVTx(self):
+        return self.checkEVTx
+
+    def setCheckEVTx(self, checkEVTx):
+        self.checkEVTx = checkEVTx
 
 # UI that is shown to user for each ingest job so they can configure the job.
 # TODO: Rename this
@@ -311,12 +313,24 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.customizeComponents()
 
     def checkBoxEventWER(self, event):
-        self.local_settings.setCheckETL(self.checkboxWER.isSelected())
+        self.local_settings.setCheckWER(self.checkboxWER.isSelected())
         self.saveFlagSetting("checkWER", self.checkboxWER.isSelected())
 
     def checkBoxEventETL(self, event):
         self.local_settings.setCheckETL(self.checkboxETL.isSelected())
         self.saveFlagSetting("checkETL", self.checkboxETL.isSelected())
+
+    def checkBoxEventLog(self, event):
+        self.local_settings.setCheckLog(self.checkboxLog.isSelected())
+        self.saveFlagSetting("checkLog", self.checkboxLog.isSelected())
+
+    def checkBoxEventDmp(self, event):
+        self.local_settings.setCheckDmp(self.checkboxDmp.isSelected())
+        self.saveFlagSetting("checkDmp", self.checkboxDmp.isSelected())
+
+    def checkBoxEventEVTx(self, event):
+        self.local_settings.setCheckEVTx(self.checkboxEVTx.isSelected())
+        self.saveFlagSetting("checkEVTx", self.checkboxEVTx.isSelected())
 
     # TODO: Update this for your UI
     def initComponents(self):
@@ -329,10 +343,16 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
 
         self.checkboxWER = JCheckBox("WER", actionPerformed=self.checkBoxEventWER)
         self.checkboxETL = JCheckBox("ETL", actionPerformed=self.checkBoxEventETL)
+        self.checkboxLog = JCheckBox("Log", actionPerformed=self.checkBoxEventLog)
+        self.checkboxEVTx = JCheckBox("EVTx", actionPerformed=self.checkBoxEventEVTx)
+        self.checkboxDmp = JCheckBox("Dmp", actionPerformed=self.checkBoxEventDmp)
 
         self.add(self.labelCheckText)
         self.add(self.checkboxWER)
         self.add(self.checkboxETL)
+        self.add(self.checkboxLog)
+        self.add(self.checkboxDmp)
+        self.add(self.checkboxEVTx)
         self.add(self.errorMessageLabel)
 
     # TODO: Update this for your UI
@@ -343,6 +363,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
     def getSettings(self):
         return self.local_settings
 
+    # Check database for log type flags
     def checkDatabaseEntries(self):
         head, tail = os.path.split(os.path.abspath(__file__)) 
         settings_db = head + "\\guiSettings.db"
@@ -354,12 +375,19 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
  
         try:
             stmt = dbConn.createStatement()
-            query = 'SELECT checkWER, checkETL FROM settings WHERE id = 1;' 
+            query = 'SELECT * FROM settings WHERE id = 1;' 
             resultSet = stmt.executeQuery(query)
             while resultSet.next():
+                self.local_settings.setCheckWER((resultSet.getInt("checkWER")>0))
                 self.checkboxWER.setSelected((resultSet.getInt("checkWER")>0))
+                self.local_settings.setCheckETL((resultSet.getInt("checkETL")>0))
                 self.checkboxETL.setSelected((resultSet.getInt("checkETL")>0))
-            self.local_settings.setCheckWER(True)
+                self.local_settings.setCheckDmp((resultSet.getInt("checkDmp")>0))
+                self.checkboxDmp.setSelected((resultSet.getInt("checkDmp")>0))
+                self.local_settings.setCheckEVTx((resultSet.getInt("checkEVTx")>0))
+                self.checkboxEVTx.setSelected((resultSet.getInt("checkEVTx")>0))
+                self.local_settings.setCheckLog((resultSet.getInt("checkLog")>0))
+                self.checkboxLog.setSelected((resultSet.getInt("checkLog")>0))
             self.errorMessageLabel.setText("Settings read successfully!")
         except SQLException as e:
             self.errorMessageLabel.setText("Could not read settings")
@@ -367,6 +395,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         stmt.close()
         dbConn.close()
 
+    # Save ONE log flag
     def saveFlagSetting(self, flag, value):
         
         head, tail = os.path.split(os.path.abspath(__file__)) 
