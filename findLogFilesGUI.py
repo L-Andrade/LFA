@@ -139,6 +139,38 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         # For statistics purposes
         self.filesFound = 0
 
+        # Get Sleuthkit case
+        skCase = Case.getCurrentCase().getSleuthkitCase()
+
+        # Create new artifact type
+        try:
+            self.log(Level.INFO, "Begin Create New Artifacts")
+            self.art_log_file = skCase.addBlackboardArtifactType( "TSK_LFA_LOG_FILES", "Log files")
+        except:     
+            self.log(Level.INFO, "Artifacts Creation Error, Log file ==> ")
+            self.art_log_file = skCase.getArtifactType("TSK_LFA_LOG_FILES")
+
+        # Create the attribute type Windows log, if it already exists, catch error
+        # If Yes, Log is in a Windows directory. If No, Log is in a normal directory
+        try:
+            self.bb_att_windows_path = skCase.addArtifactAttributeType('TSK_LFA_WINDOWS_PATH',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Windows log")
+        except:
+            self.log(Level.INFO, "Attributes Creation Error, Prefetch Windows Logs. ==> ")
+
+        # Create the attribute type, if it already exists, catch error
+        # Log size shows the size of the file in bytes
+        try:
+            self.bb_att_log_size = skCase.addArtifactAttributeType('TSK_LFA_LOG_SIZE',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Log size (B)")
+        except:
+            self.log(Level.INFO, "Attributes Creation Error, Prefetch Log size. ==> ")
+
+        self.log(Level.INFO, "Get Artifacts after they were created.")
+
+        # Get Attributes after they are created
+        self.bb_att_windows_path = skCase.getAttributeType("TSK_LFA_WINDOWS_PATH")
+        self.bb_att_log_size = skCase.getAttributeType("TSK_LFA_LOG_SIZE")
+
+
         # if self.local_settings.getCheckWER():
         #     self.log(Level.INFO, "Looking for WER")
         # else:
@@ -157,41 +189,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             (file.isFile() == False)):
             return IngestModule.ProcessResult.OK
 
-
-        # Get Sleuthkit case
-        skCase = Case.getCurrentCase().getSleuthkitCase()
-
         # Use blackboard class to index blackboard artifacts for keyword search
         blackboard = Case.getCurrentCase().getServices().getBlackboard()
-
-        # Create new artifact type
-        try:
-            self.log(Level.INFO, "Begin Create New Artifacts")
-            art_log_file = skCase.addBlackboardArtifactType( "TSK_LFA_LOG_FILES", "Log files")
-        except:     
-            self.log(Level.INFO, "Artifacts Creation Error, Log file ==> ")
-            art_log_file = skCase.getArtifactType("TSK_LFA_LOG_FILES")
-
-        # Create the attribute type Windows log, if it already exists, catch error
-        # If Yes, Log is in a Windows directory. If No, Log is in a normal directory
-        try:
-            bb_att_windows_path = skCase.addArtifactAttributeType('TSK_LFA_WINDOWS_PATH',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Windows log")
-        except:
-            self.log(Level.INFO, "Attributes Creation Error, Prefetch Windows Logs. ==> ")
-
-        # Create the attribute type, if it already exists, catch error
-        # Log size shows the size of the file in bytes
-        try:
-            bb_att_log_size = skCase.addArtifactAttributeType('TSK_LFA_LOG_SIZE',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Log size (B)")
-        except:
-            self.log(Level.INFO, "Attributes Creation Error, Prefetch Log size. ==> ")
-
-        self.log(Level.INFO, "Get Artifacts after they were created.")
-
-        # Get Attributes after they are created
-        bb_att_windows_path = skCase.getAttributeType("TSK_LFA_WINDOWS_PATH")
-        bb_att_log_size = skCase.getAttributeType("TSK_LFA_LOG_SIZE")
-
 
         # For an example, we will flag files with .txt in the name and make a blackboard artifact.
         # Actually getting .dmp files...
@@ -202,14 +201,14 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             
             # Make an artifact on the blackboard and create attributes array
             
-            art = file.newArtifact(art_log_file.getTypeID())
+            art = file.newArtifact(self.art_log_file.getTypeID())
             str_windows = "N/A"
             if "windows" in file.getParentPath().lower():
                 str_windows = "Yes"
             else:
                 str_windows = "No"
 
-            att = BlackboardAttribute(bb_att_windows_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str_windows)
+            att = BlackboardAttribute(self.bb_att_windows_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str_windows)
             art.addAttribute(att)
 
             # Register log file size
@@ -222,7 +221,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     totLen = totLen + len
                     len = inputStream.read(buffer)
 
-            att = BlackboardAttribute(bb_att_log_size, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(totLen))
+            att = BlackboardAttribute(self.bb_att_log_size, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(totLen))
             art.addAttribute(att)
 
 
@@ -235,7 +234,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             # Fire an event to notify the UI and others that there is a new artifact
             IngestServices.getInstance().fireModuleDataEvent(
                 ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                    art_log_file, None))
+                    self.art_log_file, None))
 
 
         return IngestModule.ProcessResult.OK
