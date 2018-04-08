@@ -214,21 +214,15 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         # Use blackboard class to index blackboard artifacts for keyword search
         blackboard = Case.getCurrentCase().getServices().getBlackboard()
 
-        # For an example, we will flag files with .txt in the name and make a blackboard artifact.
-        # Actually getting .dmp files...
+        # Is file of certain extension AND its checkbox is checked?
         if (file.getName().lower().endswith(".etl") and self.local_settings.getCheckETL()) or (file.getName().lower().endswith(".wer") and self.local_settings.getCheckWER()) or (file.getName().lower().endswith(".dmp") and self.local_settings.getCheckDmp()) or (file.getName().lower().endswith(".evtx") and self.local_settings.getCheckEVTx()) or (file.getName().lower().endswith(".log") and self.local_settings.getCheckLog()):
                            
             self.filesFound+=1
-
             
             # Make an artifact on the blackboard and create attributes array
             
             art = file.newArtifact(self.art_log_file.getTypeID())
-            str_windows = "N/A"
-            if "windows" in file.getParentPath().lower():
-                str_windows = "Yes"
-            else:
-                str_windows = "No"
+            str_windows = "Yes" if "windows" in file.getParentPath().lower() else "No"
 
             art.addAttribute(BlackboardAttribute(self.att_windows_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str_windows))
 
