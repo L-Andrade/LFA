@@ -153,22 +153,44 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         # Create the attribute type Windows log, if it already exists, catch error
         # If Yes, Log is in a Windows directory. If No, Log is in a normal directory
         try:
-            self.bb_att_windows_path = skCase.addArtifactAttributeType('TSK_LFA_WINDOWS_PATH',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Windows log")
+            self.att_windows_path = skCase.addArtifactAttributeType('TSK_LFA_WINDOWS_PATH',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Windows log")
         except:
             self.log(Level.INFO, "Attributes Creation Error, Prefetch Windows Logs. ==> ")
 
-        # Create the attribute type, if it already exists, catch error
+        # Create the attribute type Log size, if it already exists, catch error
         # Log size shows the size of the file in bytes
         try:
-            self.bb_att_log_size = skCase.addArtifactAttributeType('TSK_LFA_LOG_SIZE',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Log size (B)")
+            self.att_log_size = skCase.addArtifactAttributeType('TSK_LFA_LOG_SIZE',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Log size (B)")
         except:
-            self.log(Level.INFO, "Attributes Creation Error, Prefetch Log size. ==> ")
+            self.log(Level.INFO, "Error creating attribute Log size")
 
-        self.log(Level.INFO, "Get Artifacts after they were created.")
+        # Create the attribute type Log size, if it already exists, catch error
+        # Log size shows the size of the file in bytes
+        try:
+            self.att_access_time = skCase.addArtifactAttributeType('TSK_LFA_ACCESS_TIME',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "Last access")
+        except:
+            self.log(Level.INFO, "Error creating attribute Access time")
+
+        # Create the attribute type Log size, if it already exists, catch error
+        # Log size shows the size of the file in bytes
+        try:
+            self.att_modified_time = skCase.addArtifactAttributeType('TSK_LFA_MODIFIED_TIME',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "Last modified")
+        except:
+            self.log(Level.INFO, "Error creating attribute Modified time")
+
+        # Create the attribute type Log size, if it already exists, catch error
+        # Log size shows the size of the file in bytes
+        try:
+            self.att_created_time = skCase.addArtifactAttributeType('TSK_LFA_CREATED_TIME',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "Create date")
+        except:
+            self.log(Level.INFO, "Error creating attribute Created time")
 
         # Get Attributes after they are created
-        self.bb_att_windows_path = skCase.getAttributeType("TSK_LFA_WINDOWS_PATH")
-        self.bb_att_log_size = skCase.getAttributeType("TSK_LFA_LOG_SIZE")
+        self.att_windows_path = skCase.getAttributeType("TSK_LFA_WINDOWS_PATH")
+        self.att_log_size = skCase.getAttributeType("TSK_LFA_LOG_SIZE")
+        self.att_created_time = skCase.getAttributeType("TSK_LFA_CREATED_TIME")
+        self.att_access_time = skCase.getAttributeType("TSK_LFA_ACCESS_TIME")
+        self.att_modified_time = skCase.getAttributeType("TSK_LFA_MODIFIED_TIME")
 
 
         # if self.local_settings.getCheckWER():
@@ -208,22 +230,19 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             else:
                 str_windows = "No"
 
-            att = BlackboardAttribute(self.bb_att_windows_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str_windows)
-            art.addAttribute(att)
+            art.addAttribute(BlackboardAttribute(self.att_windows_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str_windows))
 
             # Register log file size
-            
-            inputStream = ReadContentInputStream(file)
-            buffer = jarray.zeros(1024, "b")
-            totLen = 0
-            len = inputStream.read(buffer)
-            while (len != -1):
-                    totLen = totLen + len
-                    len = inputStream.read(buffer)
+            art.addAttribute(BlackboardAttribute(self.att_log_size, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(file.getSize())))
 
-            att = BlackboardAttribute(self.bb_att_log_size, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(totLen))
-            art.addAttribute(att)
+            # Register creation date
+            art.addAttribute(BlackboardAttribute(self.att_created_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getCtime()))
 
+            # Register modified date
+            art.addAttribute(BlackboardAttribute(self.att_modified_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getMtime()))
+
+            # Register creation date
+            art.addAttribute(BlackboardAttribute(self.att_access_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getAtime()))
 
             try:
                 # index the artifact for keyword search
