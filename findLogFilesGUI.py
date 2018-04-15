@@ -253,8 +253,9 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             # Register creation date
             art.addAttribute(BlackboardAttribute(self.att_access_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getAtime()))
 
-            # Register local path
+            # Register case file path
             art.addAttribute(BlackboardAttribute(self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
+            
             try:
                 # index the artifact for keyword search
                 blackboard.indexArtifact(art)
@@ -270,7 +271,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         return IngestModule.ProcessResult.OK
 
     # Where any shutdown code is run and resources are freed.
-    # TODO: Add any shutdown code that you need here.
     def shutDown(self):
         # Inform user of number of files found
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
