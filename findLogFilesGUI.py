@@ -182,9 +182,9 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute Created time")
 
-        # Create the attribute type Local path, if it already exists, catch error
+        # Create the attribute type Case file path, if it already exists, catch error
         try:
-            self.att_local_path = skCase.addArtifactAttributeType('TSK_LFA_LOCAL_PATH',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Local path")
+            self.att_case_file_path = skCase.addArtifactAttributeType('TSK_LFA_CASE_FILE_PATH',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "File path (case)")
         except:
             self.log(Level.INFO, "Error creating attribute MD5 Hash")
 
@@ -194,7 +194,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.att_created_time = skCase.getAttributeType("TSK_LFA_CREATED_TIME")
         self.att_access_time = skCase.getAttributeType("TSK_LFA_ACCESS_TIME")
         self.att_modified_time = skCase.getAttributeType("TSK_LFA_MODIFIED_TIME")
-        self.att_local_path = skCase.getAttributeType("TSK_LFA_LOCAL_PATH")
+        self.att_case_file_path = skCase.getAttributeType("TSK_LFA_CASE_FILE_PATH")
 
 
         # if self.local_settings.getCheckWER():
@@ -228,7 +228,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             for artifact in artifact_list:
                 # Check if file is already an artifact
                 # If the files have the same name and parent path (this path already has the datasource), file is repeated
-                if artifact.getAttribute(self.att_local_path).getValueString() == file.getParentPath() + file.getName():
+                if artifact.getAttribute(self.att_case_file_path).getValueString() == file.getParentPath() + file.getName():
                     self.log(Level.INFO, "File is already in artifact list")
                     return IngestModule.ProcessResult.OK
 
@@ -254,7 +254,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             art.addAttribute(BlackboardAttribute(self.att_access_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getAtime()))
 
             # Register local path
-            art.addAttribute(BlackboardAttribute(self.att_local_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
+            art.addAttribute(BlackboardAttribute(self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
             try:
                 # index the artifact for keyword search
                 blackboard.indexArtifact(art)
