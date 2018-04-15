@@ -186,7 +186,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         try:
             self.att_case_file_path = skCase.addArtifactAttributeType('TSK_LFA_CASE_FILE_PATH',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "File path (case)")
         except:
-            self.log(Level.INFO, "Error creating attribute MD5 Hash")
+            self.log(Level.INFO, "Error creating attribute Case file path")
 
         # Get Attributes after they are created
         self.att_windows_path = skCase.getAttributeType("TSK_LFA_WINDOWS_PATH")
@@ -219,7 +219,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         blackboard = Case.getCurrentCase().getServices().getBlackboard()
 
         # Is file of certain extension AND its checkbox is checked?
-        if (file.getName().lower().endswith(".etl") and self.local_settings.getCheckETL()) or (file.getName().lower().endswith(".wer") and self.local_settings.getCheckWER()) or (file.getName().lower().endswith(".dmp") and self.local_settings.getCheckDmp()) or (file.getName().lower().endswith(".evtx") and self.local_settings.getCheckEVTx()) or (file.getName().lower().endswith(".log") and self.local_settings.getCheckLog()):
+        if ((file.getName().lower().endswith(".etl") and self.local_settings.getCheckETL()) or 
+                 (file.getName().lower().endswith(".wer") and self.local_settings.getCheckWER()) or 
+                 (file.getName().lower().endswith(".dmp") and self.local_settings.getCheckDmp()) or 
+                 (file.getName().lower().endswith(".evtx") and self.local_settings.getCheckEVTx()) or 
+                 (file.getName().lower().endswith(".log") and self.local_settings.getCheckLog())):
             
             # Get all artifacts of TSK_LFA_LOG_FILE
             skCase = Case.getCurrentCase().getSleuthkitCase()
@@ -228,7 +232,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             for artifact in artifact_list:
                 # Check if file is already an artifact
                 # If the files have the same name and parent path (this path already has the datasource), file is repeated
-                if artifact.getAttribute(self.att_case_file_path).getValueString() == file.getParentPath() + file.getName():
+                if artifact.getAttribute(self.att_case_file_path) != None and artifact.getAttribute(self.att_case_file_path).getValueString() == file.getParentPath() + file.getName():
                     self.log(Level.INFO, "File is already in artifact list")
                     return IngestModule.ProcessResult.OK
 
@@ -238,7 +242,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             art = file.newArtifact(self.art_log_file.getTypeID())
 
             # Register if file is in a Windows path
-            str_windows = "Yes" if "programdata\microsoft\windows\wer" in file.getLocalPath().lower() or ":\windows" in file.getLocalPath().lower() else "No"
+            str_windows = "Yes" if "programdata\microsoft\windows\wer" in file.getParentPath().lower() or "\windows" in file.getParentPath().lower() else "No"
             art.addAttribute(BlackboardAttribute(self.att_windows_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str_windows))
 
             # Register log file size
