@@ -164,26 +164,29 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute Log size")
 
-        # Create the attribute type Log size, if it already exists, catch error
-        # Log size shows the size of the file in bytes
+        # Create the attribute type Access time, if it already exists, catch error
         try:
             self.att_access_time = skCase.addArtifactAttributeType('TSK_LFA_ACCESS_TIME',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "Last access")
         except:
             self.log(Level.INFO, "Error creating attribute Access time")
 
-        # Create the attribute type Log size, if it already exists, catch error
-        # Log size shows the size of the file in bytes
+        # Create the attribute type Modified time, if it already exists, catch error
         try:
             self.att_modified_time = skCase.addArtifactAttributeType('TSK_LFA_MODIFIED_TIME',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "Last modified")
         except:
             self.log(Level.INFO, "Error creating attribute Modified time")
 
-        # Create the attribute type Log size, if it already exists, catch error
-        # Log size shows the size of the file in bytes
+        # Create the attribute type Created time, if it already exists, catch error
         try:
             self.att_created_time = skCase.addArtifactAttributeType('TSK_LFA_CREATED_TIME',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "Create date")
         except:
             self.log(Level.INFO, "Error creating attribute Created time")
+
+        # Create the attribute type Case file path, if it already exists, catch error
+        try:
+            self.att_case_file_path = skCase.addArtifactAttributeType('TSK_LFA_CASE_FILE_PATH',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "File path (case)")
+        except:
+            self.log(Level.INFO, "Error creating attribute Case file path")
 
         # Get Attributes after they are created
         self.att_windows_path = skCase.getAttributeType("TSK_LFA_WINDOWS_PATH")
@@ -191,6 +194,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.att_created_time = skCase.getAttributeType("TSK_LFA_CREATED_TIME")
         self.att_access_time = skCase.getAttributeType("TSK_LFA_ACCESS_TIME")
         self.att_modified_time = skCase.getAttributeType("TSK_LFA_MODIFIED_TIME")
+        self.att_case_file_path = skCase.getAttributeType("TSK_LFA_CASE_FILE_PATH")
 
 
         # if self.local_settings.getCheckWER():
@@ -215,22 +219,37 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         blackboard = Case.getCurrentCase().getServices().getBlackboard()
 
         # Is file of certain extension AND its checkbox is checked?
-        if (file.getName().lower().endswith(".etl") and self.local_settings.getCheckETL()) or (file.getName().lower().endswith(".wer") and self.local_settings.getCheckWER()) or (file.getName().lower().endswith(".dmp") and self.local_settings.getCheckDmp()) or (file.getName().lower().endswith(".evtx") and self.local_settings.getCheckEVTx()) or (file.getName().lower().endswith(".log") and self.local_settings.getCheckLog()):
-                           
+        if ((file.getName().lower().endswith(".etl") and self.local_settings.getCheckETL()) or 
+                 (file.getName().lower().endswith(".wer") and self.local_settings.getCheckWER()) or 
+                 (file.getName().lower().endswith(".dmp") and self.local_settings.getCheckDmp()) or 
+                 (file.getName().lower().endswith(".evtx") and self.local_settings.getCheckEVTx()) or 
+                 (file.getName().lower().endswith(".log") and self.local_settings.getCheckLog())):
+            
+            # Get all artifacts of TSK_LFA_LOG_FILE
+            skCase = Case.getCurrentCase().getSleuthkitCase()
+            artifact_list = skCase.getBlackboardArtifacts(self.art_log_file.getTypeID())
+
+            for artifact in artifact_list:
+                # Check if file is already an artifact
+                # If the files have the same name and parent path (this path already has the datasource), file is repeated
+                if artifact.getAttribute(self.att_case_file_path) != None and artifact.getAttribute(self.att_case_file_path).getValueString() == file.getParentPath() + file.getName():
+                    self.log(Level.INFO, "File is already in artifact list")
+                    return IngestModule.ProcessResult.OK
+
             self.filesFound+=1
             
-            # Make an artifact on the blackboard and create attributes array
-            
+            # Make an artifact
             art = file.newArtifact(self.art_log_file.getTypeID())
-            str_windows = "Yes" if "windows" in file.getParentPath().lower() else "No"
 
+            # Register if file is in a Windows path
+            str_windows = "Yes" if "programdata\microsoft\windows\wer" in file.getParentPath().lower() or "\windows" in file.getParentPath().lower() else "No"
             art.addAttribute(BlackboardAttribute(self.att_windows_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str_windows))
 
             # Register log file size
             art.addAttribute(BlackboardAttribute(self.att_log_size, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(file.getSize())))
 
             # Register creation date
-            art.addAttribute(BlackboardAttribute(self.att_created_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getCtime()))
+            art.addAttribute(BlackboardAttribute(self.att_created_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getCrtime()))
 
             # Register modified date
             art.addAttribute(BlackboardAttribute(self.att_modified_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getMtime()))
@@ -238,6 +257,9 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             # Register creation date
             art.addAttribute(BlackboardAttribute(self.att_access_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getAtime()))
 
+            # Register case file path
+            art.addAttribute(BlackboardAttribute(self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
+            
             try:
                 # index the artifact for keyword search
                 blackboard.indexArtifact(art)
@@ -253,7 +275,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         return IngestModule.ProcessResult.OK
 
     # Where any shutdown code is run and resources are freed.
-    # TODO: Add any shutdown code that you need here.
     def shutDown(self):
         # Inform user of number of files found
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
