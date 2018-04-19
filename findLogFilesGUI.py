@@ -41,6 +41,7 @@
 import jarray
 import inspect
 import os
+import werExtractor
 from java.lang import System
 from java.util.logging import Level
 from javax.swing import JCheckBox
@@ -73,6 +74,7 @@ from org.sleuthkit.datamodel import BlackboardAttribute
 from org.sleuthkit.datamodel import ReadContentInputStream
 from org.sleuthkit.datamodel import TskData
 from org.sleuthkit.autopsy.coreutils import Logger
+from org.sleuthkit.autopsy.datamodel import ContentUtils
 from java.lang import IllegalArgumentException
 
 # TODO: Rename this to something more specific
@@ -241,8 +243,22 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             # Make an artifact
             art = file.newArtifact(self.art_log_file.getTypeID())
 
+        # Create wer directory in temp directory, if it exists then continue on processing		
+            Temp_Dir = Case.getCurrentCase().getTempDirectory()
+            self.log(Level.INFO, "create Directory " + Temp_Dir)
+            try:
+                os.mkdir(Temp_Dir + "\\Wers")
+            except:
+                self.log(Level.INFO, "Wers Directory already exists " + Temp_Dir)
+            # Save the DB locally in the temp folder. use file id as name to reduce collisions
+            lclDbPath = os.path.join(Temp_Dir + "\\Wers", str(file.getId()))
+            ContentUtils.writeToFile(file, File(lclDbPath))
+            
+            test = werExtractor.wer_extractor.extract(lclDbPath)                        # THIS IS ONLY A TEST TO SEE IF THIS IS TH RESULT WANTED    
+            self.log(Level.INFO, "AYOOOOO HOMEBOY HERE'S THE RESULT " + test)           # THIS IS ONLY A TEST TO SEE IF THIS IS TH RESULT WANTED
+            
             # Register if file is in a Windows path
-            str_windows = "Yes" if "programdata\microsoft\windows\wer" in file.getParentPath().lower() or "\windows" in file.getParentPath().lower() else "No"
+            str_windows = "Yes" if "programdata\\microsoft\\windows\\wer" in file.getParentPath().lower() or "\\windows" in file.getParentPath().lower() else "No"
             art.addAttribute(BlackboardAttribute(self.att_windows_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str_windows))
 
             # Register log file size
@@ -256,7 +272,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
             # Register creation date
             art.addAttribute(BlackboardAttribute(self.att_access_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getAtime()))
-
+            
             # Register case file path
             art.addAttribute(BlackboardAttribute(self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
             

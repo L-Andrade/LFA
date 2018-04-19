@@ -53,7 +53,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         if _logger == None:
             _logger = Logger.getLogger(self.moduleName)
 
-        self._logger.logp(level, self.__class__.__name__, inspect.stack()[1][3], msg)
+        self._logger.logp(level, self.__class__.__name__,
+                          inspect.stack()[1][3], msg)
 
     def getName(self):
         return self.moduleName
@@ -80,8 +81,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         # Find epoch time of when 2 weeks ago was
         currentTime = System.currentTimeMillis() / 1000
-        minTime = currentTime - (14 * 24 * 60 * 60) # (days * hours * minutes * seconds)
-
         # Query the database for files that meet our criteria
         sleuthkitCase = Case.getCurrentCase().getSleuthkitCase()
         files = sleuthkitCase.findAllFilesWhere("name like '%.wer'")
@@ -97,7 +96,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # Write the count to the report file.
         fileName = os.path.join(baseReportDir, self.getRelativeFilePath())
         report = open(fileName, 'w')
-        report.write("file count = %d" % fileCount)
+        report.write(".wer files found:{}\n".format(fileCount))
+        report.write("{}".format(files[0].getChildren()[0]))
         report.close()
 
         # Add the report to the Case, so it is shown in the tree
