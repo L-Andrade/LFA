@@ -78,6 +78,8 @@ from org.sleuthkit.autopsy.coreutils import Logger
 from org.sleuthkit.autopsy.datamodel import ContentUtils
 from java.lang import IllegalArgumentException
 
+WER_FOLDER_PATH = "\\Wers"
+
 # TODO: Rename this to something more specific
 class LogForensicsForAutopsyFileIngestModuleWithUIFactory(IngestModuleFactoryAdapter):
     def __init__(self):
@@ -147,11 +149,18 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
         # Create new artifact type
         try:
-            self.log(Level.INFO, "Begin Create New Artifacts")
+            self.log(Level.INFO, "Create new Artifact Log File")
             self.art_log_file = skCase.addBlackboardArtifactType( "TSK_LFA_LOG_FILES", "Log files")
         except:     
-            self.log(Level.INFO, "Artifacts Creation Error, Log file ==> ")
+            self.log(Level.INFO, "Artifacts creation error, Log file ==> ")
             self.art_log_file = skCase.getArtifactType("TSK_LFA_LOG_FILES")
+
+        try:
+            self.log(Level.INFO, "Create new Artifact Reported Program")
+            self.art_reported_program = skCase.addBlackboardArtifactType( "TSK_LFA_REPORTED_PROGRAMS", "Reported programs")
+        except:     
+            self.log(Level.INFO, "Artifacts creation error, Reported Program ==> ")
+            self.art_reported_program = skCase.getArtifactType("TSK_LFA_REPORTED_PROGRAMS")
 
         # Create the attribute type Windows log, if it already exists, catch error
         # If Yes, Log is in a Windows directory. If No, Log is in a normal directory
@@ -191,6 +200,30 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute Case file path")
 
+        # Create the attribute type App path, if it already exists, catch error
+        try:
+            self.att_app_path = skCase.addArtifactAttributeType('TSK_LFA_APP_PATH',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "App path")
+        except:
+            self.log(Level.INFO, "Error creating attribute App path")
+
+        # Create the attribute type App name, if it already exists, catch error
+        try:
+            self.att_app_name = skCase.addArtifactAttributeType('TSK_LFA_APP_NAME',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "App name")
+        except:
+            self.log(Level.INFO, "Error creating attribute App name")
+
+        # Create the attribute type Event name, which is the FriendlyEventName in a WER file, if it already exists, catch error
+        try:
+            self.att_event_name = skCase.addArtifactAttributeType('TSK_LFA_EVENT_NAME',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Event name")
+        except:
+            self.log(Level.INFO, "Error creating attribute Event name")
+
+        # Create the attribute type Event time, which is a FILETIME from the time the error occured, if it already exists, catch error
+        try:
+            self.att_event_time = skCase.addArtifactAttributeType('TSK_LFA_EVENT_TIME',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Event time")
+        except:
+            self.log(Level.INFO, "Error creating attribute Event time")
+
         # Get Attributes after they are created
         self.att_windows_path = skCase.getAttributeType("TSK_LFA_WINDOWS_PATH")
         self.att_log_size = skCase.getAttributeType("TSK_LFA_LOG_SIZE")
@@ -198,12 +231,22 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.att_access_time = skCase.getAttributeType("TSK_LFA_ACCESS_TIME")
         self.att_modified_time = skCase.getAttributeType("TSK_LFA_MODIFIED_TIME")
         self.att_case_file_path = skCase.getAttributeType("TSK_LFA_CASE_FILE_PATH")
+        self.att_app_path = skCase.getArtifactType("TSK_LFA_APP_PATH")
+        self.att_app_name = skCase.getArtifactType("TSK_LFA_APP_NAME")
+        self.att_event_name = skCase.getArtifactType("TSK_LFA_EVENT_NAME")
+        self.att_event_time = skCase.getArtifactType("TSK_LFA_EVENT_TIME")
 
-
-        # if self.local_settings.getCheckWER():
-        #     self.log(Level.INFO, "Looking for WER")
-        # else:
-        #     self.log(Level.INFO, "Not looking for WER")
+        if self.local_settings.getCheckWER():
+            # Create wer directory in temp directory, if it exists then continue on processing     
+            self.temp_dir = Case.getCurrentCase().getTempDirectory()
+            self.log(Level.INFO, "create Directory " + self.temp_dir)
+            try:
+                os.mkdir(self.temp_dir + WER_FOLDER_PATH)
+            except:
+                self.log(Level.INFO, "Wers Directory already exists " + self.temp_dir)
+            # Save the DB locally in the temp folder. use file id as name to reduce collisions
+            self.temp_wer_path = os.path.join(self.temp_dir + WER_FOLDER_PATH, str(file.getId()))
+            ContentUtils.writeToFile(file, File(self.temp_wer_path))
 
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException("Oh No!")
@@ -240,24 +283,21 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     return IngestModule.ProcessResult.OK
 
             self.filesFound+=1
-            
+
+            #########################################################################
+            #  _                                     _    _   __              _     #
+            # | |                       /\          | |  (_) / _|            | |    #
+            # | |      ___    __ _     /  \    _ __ | |_  _ | |_  __ _   ___ | |_   #
+            # | |     / _ \  / _` |   / /\ \  | '__|| __|| ||  _|/ _` | / __|| __|  #
+            # | |____| (_) || (_| |  / ____ \ | |   | |_ | || | | (_| || (__ | |_   #
+            # |______|\___/  \__, | /_/    \_\|_|    \__||_||_|  \__,_| \___| \__|  #
+            #                 __/ |                                                 #
+            #                |___/                                                  #
+            #########################################################################
+                                  
             # Make an artifact
             art = file.newArtifact(self.art_log_file.getTypeID())
 
-            # Create wer directory in temp directory, if it exists then continue on processing		
-            Temp_Dir = Case.getCurrentCase().getTempDirectory()
-            self.log(Level.INFO, "create Directory " + Temp_Dir)
-            try:
-                os.mkdir(Temp_Dir + "\\Wers")
-            except:
-                self.log(Level.INFO, "Wers Directory already exists " + Temp_Dir)
-            # Save the DB locally in the temp folder. use file id as name to reduce collisions
-            lclDbPath = os.path.join(Temp_Dir + "\\Wers", str(file.getId()))
-            ContentUtils.writeToFile(file, File(lclDbPath))
-            
-            test = werExtractor.wer_extractor.extract(lclDbPath)                        # THIS IS ONLY A TEST TO SEE IF THIS IS TH RESULT WANTED    
-            self.log(Level.INFO, "AYOOOOO HOMEBOY HERE'S THE RESULT " + test)           # THIS IS ONLY A TEST TO SEE IF THIS IS TH RESULT WANTED
-            
             # Register if file is in a Windows path
             str_windows = "Yes" if "programdata\\microsoft\\windows\\wer" in file.getParentPath().lower() or "\\windows" in file.getParentPath().lower() else "No"
             art.addAttribute(BlackboardAttribute(self.att_windows_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str_windows))
@@ -277,11 +317,28 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             # Register case file path
             art.addAttribute(BlackboardAttribute(self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
             
+            # Add the file log artifact
             try:
                 # index the artifact for keyword search
                 blackboard.indexArtifact(art)
             except Blackboard.BlackboardException as e:
                 self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
+
+            #####################################################################################################
+            #  _____                                                             _    _   __              _     #
+            # |  __ \                                               /\          | |  (_) / _|            | |    #
+            # | |__) |_ __  ___    __ _  _ __  __ _  _ __ ___      /  \    _ __ | |_  _ | |_  __ _   ___ | |_   #
+            # |  ___/| '__|/ _ \  / _` || '__|/ _` || '_ ` _ \    / /\ \  | '__|| __|| ||  _|/ _` | / __|| __|  #
+            # | |    | |  | (_) || (_| || |  | (_| || | | | | |  / ____ \ | |   | |_ | || | | (_| || (__ | |_   #
+            # |_|    |_|   \___/  \__, ||_|   \__,_||_| |_| |_| /_/    \_\|_|    \__||_||_|  \__,_| \___| \__|  #
+            #                      __/ |                                                                        #
+            #                     |___/                                                                         #
+            #####################################################################################################
+
+            if file.getName().lower().endswith(".wer"):                
+                # THIS IS ONLY A TEST TO SEE IF THIS IS THE EXPECTED RESULT
+                test = werExtractor.wer_extractor.extract(self.temp_wer_path)
+                self.log(Level.INFO, "Logging the result: " + test)
 
             # Fire an event to notify the UI and others that there is a new artifact
             IngestServices.getInstance().fireModuleDataEvent(
