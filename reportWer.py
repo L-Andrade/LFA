@@ -34,6 +34,7 @@
 # See http://sleuthkit.org/autopsy/docs/api-docs/4.4/index.html for documentation
 
 import os
+
 from java.lang import System
 from java.util.logging import Level
 from org.sleuthkit.autopsy.casemodule import Case
@@ -49,6 +50,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
     moduleName = "LFA - WER analsys"
 
     _logger = None
+
     def log(self, level, msg):
         if _logger == None:
             _logger = Logger.getLogger(self.moduleName)

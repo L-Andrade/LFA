@@ -53,6 +53,7 @@ from java.io import File
 from java.sql import DriverManager, SQLException
 
 from org.sleuthkit.autopsy.casemodule import Case
+from org.sleuthkit.autopsy.coreutils import PlatformUtil
 from org.sleuthkit.autopsy.casemodule.services import Services
 from org.sleuthkit.autopsy.casemodule.services import FileManager
 from org.sleuthkit.autopsy.casemodule.services import Blackboard
@@ -243,7 +244,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             # Make an artifact
             art = file.newArtifact(self.art_log_file.getTypeID())
 
-        # Create wer directory in temp directory, if it exists then continue on processing		
+            # Create wer directory in temp directory, if it exists then continue on processing		
             Temp_Dir = Case.getCurrentCase().getTempDirectory()
             self.log(Level.INFO, "create Directory " + Temp_Dir)
             try:
@@ -296,7 +297,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
                 str(self.filesFound) + " total files found.")
-
         ingestServices = IngestServices.getInstance().postMessage(message)
 
 # Stores the settings that can be changed for each ingest job
