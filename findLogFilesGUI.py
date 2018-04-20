@@ -419,9 +419,9 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         
 
                 # Fire an event to notify the UI and others that there is a new log artifact
-                # IngestServices.getInstance().fireModuleDataEvent(
-                #    ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                #                    self.art_reported_program, None))
+                IngestServices.getInstance().fireModuleDataEvent(
+                   ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
+                                   self.art_reported_program, None))
 
         return IngestModule.ProcessResult.OK
 
