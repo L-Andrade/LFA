@@ -243,10 +243,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             try:
                 os.mkdir(self.temp_dir + WER_FOLDER_PATH)
             except:
-                self.log(Level.INFO, "Wers Directory already exists " + self.temp_dir)
-            # Save the DB locally in the temp folder. use file id as name to reduce collisions
-            self.temp_wer_path = os.path.join(self.temp_dir + WER_FOLDER_PATH, str(file.getId()))
-            ContentUtils.writeToFile(file, File(self.temp_wer_path))
+                self.log(Level.INFO, "Wers directory already exists " + self.temp_dir)
 
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException("Oh No!")
@@ -324,6 +321,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             except Blackboard.BlackboardException as e:
                 self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
 
+            # Fire an event to notify the UI and others that there is a new log artifact
+            IngestServices.getInstance().fireModuleDataEvent(
+                ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
+                    self.art_log_file, None))
+
             #####################################################################################################
             #  _____                                                             _    _   __              _     #
             # |  __ \                                               /\          | |  (_) / _|            | |    #
@@ -335,16 +337,18 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             #                     |___/                                                                         #
             #####################################################################################################
 
-            if file.getName().lower().endswith(".wer"):                
+            if file.getName().lower().endswith(".wer"):
+                # Save the file locally in the temp folder and use file id as name to reduce collisions
+                self.temp_wer_path = os.path.join(self.temp_dir + WER_FOLDER_PATH, str(file.getId()))
+                ContentUtils.writeToFile(file, File(self.temp_wer_path))
+
                 # THIS IS ONLY A TEST TO SEE IF THIS IS THE EXPECTED RESULT
-                test = werExtractor.wer_extractor.extract(self.temp_wer_path)
+                test = werExtractor.wer_extractor.extract_default_keys(self.temp_wer_path)
                 self.log(Level.INFO, "Logging the result: " + test)
 
-            # Fire an event to notify the UI and others that there is a new artifact
-            IngestServices.getInstance().fireModuleDataEvent(
-                ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                    self.art_log_file, None))
-
+                # Create new program artifact if .wer file is valid
+                # Add attributes to artifact
+                # Add artifact to Blackboard
 
         return IngestModule.ProcessResult.OK
 
