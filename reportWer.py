@@ -32,7 +32,6 @@
 import os
 import bs4
 
-from shutil import copyfile
 from java.lang import System
 from java.util.logging import Level
 from org.sleuthkit.autopsy.casemodule import Case
@@ -113,8 +112,10 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         att_installed_prog_name = skCase.getAttributeType("TSK_PROG_NAME")
         att_reported_app_name = skCase.getAttributeType("TSK_LFA_APP_NAME")
 
+        art_count = 0
         # Create a table row for each artifact
         for artifact in art_list_reported_progs:
+            art_count+=1
             # Create row
             row = soup.new_tag("tr")
             # Get artifact's attributes
@@ -143,7 +144,14 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             row.append(is_installed_cell)
 
             # Append row to table
-            soup.tbody.append(row)
+            # Select tag with ID reportedinstalls - 0 because soup.select returns an array
+            table = soup.select("#reportedinstalls")[0]
+            table.append(row)
+
+        # Add number of artifacts to table info panel
+        # Select tag '<p>' with ID tableinfo - 0 because soup.select returns an array
+        info = soup.select("p#tableinfo")[0]
+        info.string = str(art_count) + " reported programs" 
 
         # Write HTML to Report
         with open(file_name, "w") as outf:
