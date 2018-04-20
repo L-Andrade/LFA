@@ -32,6 +32,7 @@
 import os
 import bs4
 
+from math import ceil
 from java.lang import System
 from java.util.logging import Level
 from org.sleuthkit.autopsy.casemodule import Case
@@ -70,19 +71,25 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # Configure progress bar for 2 tasks
         progressBar.setIndeterminate(False)
         progressBar.start()
-        progressBar.setMaximumProgress(2)
+        progressBar.updateStatusLabel("Getting files and counting")
 
         # Query the database for files that meet our criteria
         skCase = Case.getCurrentCase().getSleuthkitCase()
         files = skCase.findAllFilesWhere("name like '%.wer'")
 
-        fileCount = 0
+        file_count = 0
         for file in files:
-            fileCount += 1
-            # Could do something else here and write it to HTML, CSV, etc.
+            file_count += 1
 
-        # Increment since we are done with step #1
+        # Dividing by ten because progress bar shouldn't be updated too frequently
+        # So we'll update it every 10 artifacts
+        # Plus 3 for 3 additional steps
+        max_progress = (ceil(file_count / 10) + 3)
+        progressBar.setMaximumProgress(int(max_progress))
+
+        # First additional step here
         progressBar.increment()
+        progressBar.updateStatusLabel("Creating report from template")
 
         # Get file_name and open it
         file_name = os.path.join(baseReportDir, self.getRelativeFilePath())
@@ -103,6 +110,10 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         with open(template_name) as inf:
             txt = inf.read()
             soup = bs4.BeautifulSoup(txt)
+
+        # Second additional step here
+        progressBar.increment()
+        progressBar.updateStatusLabel("Going through artifacts now...")
 
         # Get artifact lists
         art_list_reported_progs = skCase.getBlackboardArtifacts("TSK_LFA_REPORTED_PROGRAMS")
@@ -148,10 +159,18 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             table = soup.select("#reportedinstalls")[0]
             table.append(row)
 
+            # Update progress bar every 10 seconds
+            if art_count % 10 == 0:
+                progressBar.increment()
+
         # Add number of artifacts to table info panel
         # Select tag '<p>' with ID tableinfo - 0 because soup.select returns an array
         info = soup.select("p#tableinfo")[0]
-        info.string = str(art_count) + " reported programs" 
+        info.string = str(art_count) + " artifacts out of " + str(file_count) + " files"
+
+        # Third additional step before saving
+        progressBar.increment()
+        progressBar.updateStatusLabel("Saving to report...")
 
         # Write HTML to Report
         with open(file_name, "w") as outf:
@@ -159,8 +178,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         # Add the report to the Case, so it is shown in the tree
         Case.getCurrentCase().addReport(file_name, self.moduleName, "LFA Report")
-
-        progressBar.increment()
 
         # Call this with ERROR if report was not generated
         progressBar.complete(ReportStatus.COMPLETE)
