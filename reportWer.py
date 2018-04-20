@@ -27,14 +27,12 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 
-
-# Sample report module for Autopsy.  Use as a starting point for new modules.
-#
-# Search for TODO for the things that you need to change
 # See http://sleuthkit.org/autopsy/docs/api-docs/4.4/index.html for documentation
 
 import os
+import bs4
 
+from shutil import copyfile
 from java.lang import System
 from java.util.logging import Level
 from org.sleuthkit.autopsy.casemodule import Case
@@ -43,16 +41,14 @@ from org.sleuthkit.autopsy.report import GeneralReportModuleAdapter
 from org.sleuthkit.autopsy.report.ReportProgressPanel import ReportStatus
 
 
-# TODO: Rename the class to something more specific
 class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
-    # TODO: Rename this.  Will be shown to users when making a report
-    moduleName = "LFA - WER analsys"
+    moduleName = "LFA Report"
 
     _logger = None
 
     def log(self, level, msg):
-        if _logger == None:
+        if _logger is None:
             _logger = Logger.getLogger(self.moduleName)
 
         self._logger.logp(level, self.__class__.__name__,
@@ -61,31 +57,25 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
     def getName(self):
         return self.moduleName
 
-    # TODO: Give it a useful description
     def getDescription(self):
-        return "A sample Jython report module"
+        return "Get information of reported programs vs. installed programs"
 
-    # TODO: Update this to reflect where the report file will be written to
     def getRelativeFilePath(self):
-        return "sampleReport.txt"
+        return "LFA_" + Case.getCurrentCase().getName() + ".html"
 
-    # TODO: Update this method to make a report
     # The 'baseReportDir' object being passed in is a string with the directory that reports are being stored in.   Report should go into baseReportDir + getRelativeFilePath().
     # The 'progressBar' object is of type ReportProgressPanel.
     #   See: http://sleuthkit.org/autopsy/docs/api-docs/4.4/classorg_1_1sleuthkit_1_1autopsy_1_1report_1_1_report_progress_panel.html
     def generateReport(self, baseReportDir, progressBar):
 
-        # For an example, we write a file with the number of files created in the past 2 weeks
         # Configure progress bar for 2 tasks
         progressBar.setIndeterminate(False)
         progressBar.start()
         progressBar.setMaximumProgress(2)
 
-        # Find epoch time of when 2 weeks ago was
-        currentTime = System.currentTimeMillis() / 1000
         # Query the database for files that meet our criteria
-        sleuthkitCase = Case.getCurrentCase().getSleuthkitCase()
-        files = sleuthkitCase.findAllFilesWhere("name like '%.wer'")
+        skCase = Case.getCurrentCase().getSleuthkitCase()
+        files = skCase.findAllFilesWhere("name like '%.wer'")
 
         fileCount = 0
         for file in files:
@@ -95,17 +85,55 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # Increment since we are done with step #1
         progressBar.increment()
 
-        # Write the count to the report file.
-        fileName = os.path.join(baseReportDir, self.getRelativeFilePath())
-        report = open(fileName, 'w')
-        report.write(".wer files found:{}\n".format(fileCount))
-        report.write("{}".format(files[0].getChildren()[0]))
-        report.close()
+        # Get file_name and open it
+        file_name = os.path.join(baseReportDir, self.getRelativeFilePath())
+        # report = open(file_name, 'w')
+
+        # Get template path
+        template_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template.html")
+
+        # Copy report template to report
+        # copyfile(template_name,file_name)
+
+        # report.write(".wer files found:{}\n".format(fileCount))
+        # report.write("{}".format(files[0].getChildren()[0]))
+        # report.close()
+        
+        with open(template_name) as inf:
+            txt = inf.read()
+            soup = bs4.BeautifulSoup(txt)
+
+        row = soup.new_tag("tr")
+        prog_name = soup.new_tag("td")
+        reported_prog = soup.new_tag("td")
+        event = soup.new_tag("td")
+        time_of_report = soup.new_tag("td")
+        row.append(prog_name)
+        row.append(reported_prog)
+        row.append(event)
+        row.append(time_of_report)
+        prog_name.string = "Teste1.exe"
+        reported_prog.string = "Teste1.exe"
+        event.string = "Crash"
+        time_of_report.string = "10/10/2010"
+
+        soup.tbody.append(row)
+
+        with open(file_name, "w") as outf:
+            outf.write(str(soup))
+
+        art_list_reported_progs = skCase.getBlackboardArtifacts("TSK_LFA_REPORTED_PROGRAMS")
+
+        for artifact in art_list_reported_progs:
+            pass
 
         # Add the report to the Case, so it is shown in the tree
-        Case.getCurrentCase().addReport(fileName, self.moduleName, "File Count Report")
+        Case.getCurrentCase().addReport(file_name, self.moduleName, "LFA Report")
 
         progressBar.increment()
 
         # Call this with ERROR if report was not generated
         progressBar.complete(ReportStatus.COMPLETE)
+
+    def getConfigurationPanel(self):
+        pass
