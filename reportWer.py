@@ -99,33 +99,33 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # report.write("{}".format(files[0].getChildren()[0]))
         # report.close()
         
+        # Open template HTML
+        # The template has a table and a basic interface to show results
         with open(template_name) as inf:
             txt = inf.read()
             soup = bs4.BeautifulSoup(txt)
-
-        row = soup.new_tag("tr")
-        prog_name = soup.new_tag("td")
-        reported_prog = soup.new_tag("td")
-        event = soup.new_tag("td")
-        time_of_report = soup.new_tag("td")
-        row.append(prog_name)
-        row.append(reported_prog)
-        row.append(event)
-        row.append(time_of_report)
-        prog_name.string = "Teste1.exe"
-        reported_prog.string = "Teste1.exe"
-        event.string = "Crash"
-        time_of_report.string = "10/10/2010"
-
-        soup.tbody.append(row)
-
-        with open(file_name, "w") as outf:
-            outf.write(str(soup))
-
+        
         art_list_reported_progs = skCase.getBlackboardArtifacts("TSK_LFA_REPORTED_PROGRAMS")
 
+        # Create a table row for each artifact
         for artifact in art_list_reported_progs:
-            pass
+            # Create row
+            row = soup.new_tag("tr")
+            # Get artifact's attributes
+            attributes = artifact.getAttributes()
+            for attribute in attributes:
+                # Create a cell and add attribute value as content
+                cell = soup.new_tag("td")
+                cell.string = attribute.getValueString()
+
+                # Append cell to the row
+                row.append(cell)
+            # Append row to table
+            soup.tbody.append(row)
+
+        # Write HTML to Report
+        with open(file_name, "w") as outf:
+            outf.write(str(soup))
 
         # Add the report to the Case, so it is shown in the tree
         Case.getCurrentCase().addReport(file_name, self.moduleName, "LFA Report")
