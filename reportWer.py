@@ -104,8 +104,14 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         with open(template_name) as inf:
             txt = inf.read()
             soup = bs4.BeautifulSoup(txt)
-        
+
+        # Get artifact lists
         art_list_reported_progs = skCase.getBlackboardArtifacts("TSK_LFA_REPORTED_PROGRAMS")
+        art_list_installed_progs = skCase.getBlackboardArtifacts("TSK_INSTALLED_PROG")
+
+        # Get Attribute types
+        att_installed_prog_name = skCase.getAttributeType("TSK_PROG_NAME")
+        att_reported_app_name = skCase.getAttributeType("TSK_LFA_APP_NAME")
 
         # Create a table row for each artifact
         for artifact in art_list_reported_progs:
@@ -120,6 +126,22 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
                 # Append cell to the row
                 row.append(cell)
+
+            # Check if the reported program is installed
+            # Create the cell
+            is_installed_cell = soup.new_tag("td")
+            # Default value is No
+            is_installed_cell.string = "No"
+            # Search through installed programs...
+            for art_installed_prog in art_list_installed_progs:
+                installed_prog_name = art_installed_prog.getAttribute(att_installed_prog_name).getValueString()
+                reported_app_name = artifact.getAttribute(att_reported_app_name).getValueString()
+                if installed_prog_name == reported_app_name:
+                    # Change is installed to Yes and break cycle
+                    is_installed_cell.string = "Yes"
+                    break;
+            row.append(is_installed_cell)
+
             # Append row to table
             soup.tbody.append(row)
 
