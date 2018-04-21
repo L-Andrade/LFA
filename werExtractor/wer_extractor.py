@@ -13,12 +13,7 @@ HUNDREDS_OF_NANOSECONDS = 10000000
 
 
 def extract_default_keys(pathToFile):
-    try:
-        f = codecs.open(pathToFile, 'r', encoding='utf-16le')
-        lines = f.readlines()
-        f.close()
-    except IOError:
-        return {'Error': 'unable to open file'}
+    lines = read_file_lines(pathToFile)
 
     myDict = {}
     try:
@@ -44,14 +39,37 @@ def extract_default_keys(pathToFile):
 
 
 def extract_specific_key(pathToFile, key):
+    lines = read_file_lines(pathToFile)
     try:
-        f = codecs.open(pathToFile, 'r', encoding='utf-16le')
+        for line in lines:
+            sLines = line.split("=")
+            if(sLines[0] == key):
+                return sLines[1]
+        return{'Error': 'key does not exist in file'}
+    except:
+        return{'Error': 'unable to parse file'}
+
+
+def find_dmp_files(pathToFile):
+    lines = read_file_lines(pathToFile)
+    res = []
+    try:
+        for line in lines:
+            sLines = line.split("=")
+            if(sLines[1].endswith(".dmp") and "\\" not in sLines[1] and sLines[1] not in  res):
+                res.append(sLines[1])
+        return res
+    except:
+        return{'Error': 'unable to parse file'}
+
+    return
+    
+
+def read_file_lines(path):
+    try:
+        f = codecs.open(path, 'r', encoding='utf-16le')
         lines = f.readlines()
         f.close()
+        return lines
     except IOError:
-        return [-1]
-    for line in lines:
-        sLines = line.split("=")
-        if(sLines[0] == key):
-            return sLines[1]
-    return ""
+        return {'Error': 'unable to open file'}
