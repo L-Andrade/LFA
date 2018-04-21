@@ -31,7 +31,6 @@
 
 import os
 import bs4
-import chardet
 
 from math import ceil
 from java.lang import System
