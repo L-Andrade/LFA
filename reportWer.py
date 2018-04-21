@@ -31,6 +31,7 @@
 
 import os
 import bs4
+import chardet
 
 from math import ceil
 from java.lang import System
@@ -145,13 +146,14 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Default value is No
             is_installed_cell.string = "No"
             # Search through installed programs...
+            # Get reported app name
+            reported_app_name = artifact.getAttribute(att_reported_app_name).getValueString().lower()
             for art_installed_prog in art_list_installed_progs:
-                installed_prog_name = art_installed_prog.getAttribute(att_installed_prog_name).getValueString()
-                reported_app_name = artifact.getAttribute(att_reported_app_name).getValueString()
-                if installed_prog_name == reported_app_name:
+                installed_prog_name = art_installed_prog.getAttribute(att_installed_prog_name).getValueString().lower()
+                if (installed_prog_name).find((reported_app_name)) is not -1:
                     # Change is installed to Yes and break cycle
                     is_installed_cell.string = "Yes"
-                    break;
+                    break
             row.append(is_installed_cell)
 
             # Append row to table
@@ -166,7 +168,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # Add number of artifacts to table info panel
         # Select tag '<p>' with ID tableinfo - 0 because soup.select returns an array
         info = soup.select("p#tableinfo")[0]
-        info.string = str(art_count) + " artifacts out of " + str(file_count) + " files"
+        # Need to turn one of the ints into float so the division works
+        percentage = round((float(art_count)/file_count)*100,2) if file_count != 0 else 0
+        info.string = str(art_count) + " artifacts out of " + str(file_count) + " files ("+ str(percentage) + "%)"
 
         # Third additional step before saving
         progressBar.increment()
