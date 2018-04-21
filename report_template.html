@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <title>LFA Report</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+</head>
+<body>
+    <div>
+        <nav class="navbar navbar-default">
+            <div class="container-fluid">
+            <!-- Brand and toggle get grouped for better mobile display -->
+                <div class="navbar-header">
+                    <a class="navbar-brand" href="#">Log Forensics for Autopsy</a>
+                </div>
+                <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+                    <ul class="nav navbar-nav">
+                        <li class="active"><a href="#">Report <span class="sr-only">(current)</span></a></li>
+                        <li><a href="#">Reported Programs</a></li>
+                        <li><a href="#">Installed Programs</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </div>
+    <div class="container-fluid">
+        <div class="panel panel-default">
+        <!-- Default panel contents -->
+            <div class="panel-heading">List of installed and reported programs</div>
+            <div class="panel-body">
+                <p id="tableinfo"></p>
+            </div>
+            <!-- Table -->
+            <table class="table" id="reportedinstalls">
+                <thead>
+                    <tr>
+                        <th>Program name</th>
+                        <th>Event</th>
+                        <th>Time of report</th>
+                        <th>Path to program</th>
+                        <th>Is installed</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

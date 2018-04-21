@@ -27,14 +27,12 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 
-
-# Sample report module for Autopsy.  Use as a starting point for new modules.
-#
-# Search for TODO for the things that you need to change
 # See http://sleuthkit.org/autopsy/docs/api-docs/4.4/index.html for documentation
 
 import os
+import bs4
 
+from math import ceil
 from java.lang import System
 from java.util.logging import Level
 from org.sleuthkit.autopsy.casemodule import Case
@@ -43,16 +41,14 @@ from org.sleuthkit.autopsy.report import GeneralReportModuleAdapter
 from org.sleuthkit.autopsy.report.ReportProgressPanel import ReportStatus
 
 
-# TODO: Rename the class to something more specific
 class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
-    # TODO: Rename this.  Will be shown to users when making a report
-    moduleName = "LFA - WER analsys"
+    moduleName = "LFA Report"
 
     _logger = None
 
     def log(self, level, msg):
-        if _logger == None:
+        if _logger is None:
             _logger = Logger.getLogger(self.moduleName)
 
         self._logger.logp(level, self.__class__.__name__,
@@ -61,51 +57,130 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
     def getName(self):
         return self.moduleName
 
-    # TODO: Give it a useful description
     def getDescription(self):
-        return "A sample Jython report module"
+        return "Get information of reported programs vs. installed programs"
 
-    # TODO: Update this to reflect where the report file will be written to
     def getRelativeFilePath(self):
-        return "sampleReport.txt"
+        return "LFA_" + Case.getCurrentCase().getName() + ".html"
 
-    # TODO: Update this method to make a report
     # The 'baseReportDir' object being passed in is a string with the directory that reports are being stored in.   Report should go into baseReportDir + getRelativeFilePath().
     # The 'progressBar' object is of type ReportProgressPanel.
     #   See: http://sleuthkit.org/autopsy/docs/api-docs/4.4/classorg_1_1sleuthkit_1_1autopsy_1_1report_1_1_report_progress_panel.html
     def generateReport(self, baseReportDir, progressBar):
 
-        # For an example, we write a file with the number of files created in the past 2 weeks
         # Configure progress bar for 2 tasks
         progressBar.setIndeterminate(False)
         progressBar.start()
-        progressBar.setMaximumProgress(2)
+        progressBar.updateStatusLabel("Getting files and counting")
 
-        # Find epoch time of when 2 weeks ago was
-        currentTime = System.currentTimeMillis() / 1000
         # Query the database for files that meet our criteria
-        sleuthkitCase = Case.getCurrentCase().getSleuthkitCase()
-        files = sleuthkitCase.findAllFilesWhere("name like '%.wer'")
+        skCase = Case.getCurrentCase().getSleuthkitCase()
+        files = skCase.findAllFilesWhere("name like '%.wer'")
 
-        fileCount = 0
+        file_count = 0
         for file in files:
-            fileCount += 1
-            # Could do something else here and write it to HTML, CSV, etc.
+            file_count += 1
 
-        # Increment since we are done with step #1
+        # Dividing by ten because progress bar shouldn't be updated too frequently
+        # So we'll update it every 10 artifacts
+        # Plus 3 for 3 additional steps
+        max_progress = (ceil(file_count / 10) + 3)
+        progressBar.setMaximumProgress(int(max_progress))
+
+        # First additional step here
         progressBar.increment()
+        progressBar.updateStatusLabel("Creating report from template")
 
-        # Write the count to the report file.
-        fileName = os.path.join(baseReportDir, self.getRelativeFilePath())
-        report = open(fileName, 'w')
-        report.write(".wer files found:{}\n".format(fileCount))
-        report.write("{}".format(files[0].getChildren()[0]))
-        report.close()
+        # Get file_name and open it
+        file_name = os.path.join(baseReportDir, self.getRelativeFilePath())
+        # report = open(file_name, 'w')
+
+        # Get template path
+        template_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template.html")
+
+        # Copy report template to report
+        # copyfile(template_name,file_name)
+
+        # report.write(".wer files found:{}\n".format(fileCount))
+        # report.write("{}".format(files[0].getChildren()[0]))
+        # report.close()
+        
+        # Open template HTML
+        # The template has a table and a basic interface to show results
+        with open(template_name) as inf:
+            txt = inf.read()
+            soup = bs4.BeautifulSoup(txt)
+
+        # Second additional step here
+        progressBar.increment()
+        progressBar.updateStatusLabel("Going through artifacts now...")
+
+        # Get artifact lists
+        art_list_reported_progs = skCase.getBlackboardArtifacts("TSK_LFA_REPORTED_PROGRAMS")
+        art_list_installed_progs = skCase.getBlackboardArtifacts("TSK_INSTALLED_PROG")
+
+        # Get Attribute types
+        att_installed_prog_name = skCase.getAttributeType("TSK_PROG_NAME")
+        att_reported_app_name = skCase.getAttributeType("TSK_LFA_APP_NAME")
+
+        art_count = 0
+        # Create a table row for each artifact
+        for artifact in art_list_reported_progs:
+            art_count+=1
+            # Create row
+            row = soup.new_tag("tr")
+            # Get artifact's attributes
+            attributes = artifact.getAttributes()
+            for attribute in attributes:
+                # Create a cell and add attribute value as content
+                cell = soup.new_tag("td")
+                cell.string = attribute.getValueString()
+
+                # Append cell to the row
+                row.append(cell)
+
+            # Check if the reported program is installed
+            # Create the cell
+            is_installed_cell = soup.new_tag("td")
+            # Default value is No
+            is_installed_cell.string = "No"
+            # Search through installed programs...
+            for art_installed_prog in art_list_installed_progs:
+                installed_prog_name = art_installed_prog.getAttribute(att_installed_prog_name).getValueString()
+                reported_app_name = artifact.getAttribute(att_reported_app_name).getValueString()
+                if installed_prog_name == reported_app_name:
+                    # Change is installed to Yes and break cycle
+                    is_installed_cell.string = "Yes"
+                    break;
+            row.append(is_installed_cell)
+
+            # Append row to table
+            # Select tag with ID reportedinstalls - 0 because soup.select returns an array
+            table = soup.select("#reportedinstalls")[0]
+            table.append(row)
+
+            # Update progress bar every 10 seconds
+            if art_count % 10 == 0:
+                progressBar.increment()
+
+        # Add number of artifacts to table info panel
+        # Select tag '<p>' with ID tableinfo - 0 because soup.select returns an array
+        info = soup.select("p#tableinfo")[0]
+        info.string = str(art_count) + " artifacts out of " + str(file_count) + " files"
+
+        # Third additional step before saving
+        progressBar.increment()
+        progressBar.updateStatusLabel("Saving to report...")
+
+        # Write HTML to Report
+        with open(file_name, "w") as outf:
+            outf.write(str(soup))
 
         # Add the report to the Case, so it is shown in the tree
-        Case.getCurrentCase().addReport(fileName, self.moduleName, "File Count Report")
-
-        progressBar.increment()
+        Case.getCurrentCase().addReport(file_name, self.moduleName, "LFA Report")
 
         # Call this with ERROR if report was not generated
         progressBar.complete(ReportStatus.COMPLETE)
+
+    def getConfigurationPanel(self):
+        pass
