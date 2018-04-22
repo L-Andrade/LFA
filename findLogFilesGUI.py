@@ -240,6 +240,14 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute Event time")
 
+        # Create the attribute type Dump files, which is a list of .dmp files referenced in the .wer file
+        try:
+            self.att_event_time = skCase.addArtifactAttributeType(
+                'TSK_LFA_DUMP_FILES', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Dump files")
+        except:
+            self.log(Level.INFO, "Error creating attribute Dump files")
+
+
         # Get Attributes after they are created
         self.att_windows_path = skCase.getAttributeType("TSK_LFA_WINDOWS_PATH")
         self.att_log_size = skCase.getAttributeType("TSK_LFA_LOG_SIZE")
@@ -253,6 +261,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.att_app_name = skCase.getAttributeType("TSK_LFA_APP_NAME")
         self.att_event_name = skCase.getAttributeType("TSK_LFA_EVENT_NAME")
         self.att_event_time = skCase.getAttributeType("TSK_LFA_EVENT_TIME")
+        self.att_dump_files = skCase.getAttributeType("TSK_LFA_DUMP_FILES")
 
         if self.local_settings.getCheckWER():
             # Create wer directory in temp directory, if it exists then continue on processing
@@ -390,7 +399,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 rArt=file.newArtifact(self.art_reported_program.getTypeID())
                 self.log(
                         Level.INFO, "Created new artifac of type art_reported_program for file of id " + str(file.getId()))
-                # Add attributes to artifact
+                # Add normal attributes to artifact
                 rArt.addAttribute(BlackboardAttribute(self.att_app_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(res['AppName'])))
                 self.log(
                         Level.INFO, "Copying 1st att for .wer file of id " + str(file.getId()))
@@ -399,12 +408,30 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     self.att_event_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(res['FriendlyEventName'])))
                 self.log(
                         Level.INFO, "Copying 2nd att for .wer file of id " + str(file.getId()))
+
                 rArt.addAttribute(BlackboardAttribute(
                     self.att_event_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(res['EventTime'])))
                 self.log(
                         Level.INFO, "Copying 3rd att for .wer file of id " + str(file.getId()))
+
                 rArt.addAttribute(BlackboardAttribute(
                     self.att_app_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(res['AppPath'])))
+                self.log(
+                        Level.INFO, "Copying 4th att for .wer file of id " + str(file.getId()))
+
+                #adding dump file search result
+
+                dmp=werExtractor.wer_extractor.find_dmp_files(
+                    self.temp_wer_path)
+                self.log(
+                        Level.INFO, "Extracted dump files names from .wer file of id " + str(file.getId()))
+
+                if(not dmp or "Error" in dmp):
+                    dmp = "None"
+                else:
+                    dmp = ', '.join(dmp)
+                rArt.addAttribute(BlackboardAttribute(
+                    self.att_dump_files, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, dmp))
                 self.log(
                         Level.INFO, "Copying 4th att for .wer file of id " + str(file.getId()))
                 # Add artifact to Blackboard

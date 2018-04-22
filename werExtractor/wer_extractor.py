@@ -61,8 +61,6 @@ def find_dmp_files(pathToFile):
         return res
     except:
         return{'Error': 'unable to parse file'}
-
-    return
     
 
 def read_file_lines(path):
