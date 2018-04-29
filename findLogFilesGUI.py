@@ -242,7 +242,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
         # Create the attribute type Dump files, which is a list of .dmp files referenced in the .wer file
         try:
-            self.att_event_time = skCase.addArtifactAttributeType(
+            self.att_dump_files = skCase.addArtifactAttributeType(
                 'TSK_LFA_DUMP_FILES', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Dump files")
         except:
             self.log(Level.INFO, "Error creating attribute Dump files")
@@ -380,48 +380,47 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     self.temp_dir + WER_FOLDER_PATH, str(file.getId()))
                 ContentUtils.writeToFile(file, File(self.temp_wer_path))
                 self.log(Level.INFO, "Copying .wer file of id " + str(file.getId()))
-                # THIS IS ONLY A TEST TO SEE IF THIS IS THE EXPECTED RESULT
-                # TEST test = werExtractor.wer_extractor.extract_default_keys(self.temp_wer_path)
-                # TEST self.log(Level.INFO, "Logging the result: " + str(test.values()))
 
-                # get the parsed result
-                res=werExtractor.wer_extractor.extract_default_keys(
+                # Get the parsed result
+                wer_info = werExtractor.wer_extractor.extract_default_keys(
                     self.temp_wer_path)
                 self.log(
                         Level.INFO, "Extracted .wer file of id " + str(file.getId()))
-                # check if any error occured
-                if(res.get('Error')):
+                
+                # Check if any error occured
+                if(wer_info.get('Error')):
                     self.log(
                         Level.INFO, "Could not parse .wer file of id: " + str(file.getId()))
                     return IngestModule.ProcessResult.OK
+                
                 # Create new program artifact if .wer file is valid
-
-                rArt=file.newArtifact(self.art_reported_program.getTypeID())
+                reported_art = file.newArtifact(self.art_reported_program.getTypeID())
                 self.log(
                         Level.INFO, "Created new artifac of type art_reported_program for file of id " + str(file.getId()))
+                
                 # Add normal attributes to artifact
-                rArt.addAttribute(BlackboardAttribute(self.att_app_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(res['AppName'])))
+                reported_art.addAttribute(BlackboardAttribute(self.att_app_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['AppName'])))
                 self.log(
                         Level.INFO, "Copying 1st att for .wer file of id " + str(file.getId()))
 
-                rArt.addAttribute(BlackboardAttribute(
-                    self.att_event_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(res['FriendlyEventName'])))
+                reported_art.addAttribute(BlackboardAttribute(
+                    self.att_event_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['FriendlyEventName'])))
                 self.log(
                         Level.INFO, "Copying 2nd att for .wer file of id " + str(file.getId()))
 
-                rArt.addAttribute(BlackboardAttribute(
+                reported_art.addAttribute(BlackboardAttribute(
                     self.att_event_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(res['EventTime'])))
                 self.log(
                         Level.INFO, "Copying 3rd att for .wer file of id " + str(file.getId()))
 
-                rArt.addAttribute(BlackboardAttribute(
-                    self.att_app_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(res['AppPath'])))
+                reported_art.addAttribute(BlackboardAttribute(
+                    self.att_app_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['AppPath'])))
                 self.log(
                         Level.INFO, "Copying 4th att for .wer file of id " + str(file.getId()))
 
                 #adding dump file search result
 
-                dmp=werExtractor.wer_extractor.find_dmp_files(
+                dmp = werExtractor.wer_extractor.find_dmp_files(
                     self.temp_wer_path)
                 self.log(
                         Level.INFO, "Extracted dump files names from .wer file of id " + str(file.getId()))
@@ -430,19 +429,20 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     dmp = "None"
                 else:
                     dmp = ', '.join(dmp)
-                rArt.addAttribute(BlackboardAttribute(
+                
+                reported_art.addAttribute(BlackboardAttribute(
                     self.att_dump_files, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, dmp))
                 self.log(
                         Level.INFO, "Copying 4th att for .wer file of id " + str(file.getId()))
                 # Add artifact to Blackboard
                 try:
-                    # index the artifact for keyword search
-                    blackboard.indexArtifact(rArt)
+                    # Index the artifact for keyword search
+                    blackboard.indexArtifact(reported_art)
                 except Blackboard.BlackboardException as e:
                     self.log(Level.SEVERE, "Error indexing artifact " +
-                             rArt.getDisplayName())
+                             reported_art.getDisplayName())
                 self.log(
-                        Level.INFO, "added art to blackbox for file of id " + str(file.getId()))    
+                        Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))    
                         
 
                 # Fire an event to notify the UI and others that there is a new log artifact
@@ -455,7 +455,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
     # Where any shutdown code is run and resources are freed.
     def shutDown(self):
         # Inform user of number of files found
-        message=IngestMessage.createMessage(IngestMessage.MessageType.DATA,
+        message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                                               LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
                                               str(self.filesFound) + " total files found.")
         ingestServices=IngestServices.getInstance().postMessage(message)
@@ -637,10 +637,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         except SQLException as e:
             self.errorMessageLabel.setText("Error opening settings")
 
-        if value:
-            int_value=1
-        else:
-            int_value=0
+        int_value = 1 if value else 0
 
         try:
             stmt=dbConn.createStatement()
