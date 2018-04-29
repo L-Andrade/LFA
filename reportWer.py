@@ -105,7 +105,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         # Init reports
         if generateHTML:
-            # Get html_file_name and open it
+            # Get html_file_name
             html_file_name = os.path.join(baseReportDir, self.getRelativeFilePath())
             # Get template path
             template_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template.html")
@@ -117,6 +117,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 report_html = bs4.BeautifulSoup(txt)
 
         if generateXLS:
+            # Get xls_file_name
+            # TODO: Format Excel and add headers
             xls_file_name = os.path.join(baseReportDir, self.getRelativeFilePathXLS())
 
             # Create a workbook and add a worksheet.
