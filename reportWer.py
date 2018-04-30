@@ -124,8 +124,11 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Create a workbook and add a worksheet.
             report_xls_wb = xlsxwriter.Workbook(xls_file_name)
             report_xls_ws = report_xls_wb.add_worksheet()
+
+            # Create counters to operate Excel
             xls_row_count = 0
             xls_col_count = 0
+
 
         # Second additional step here
         progressBar.increment()
@@ -150,6 +153,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             if generateXLS:
                 xls_col_count = 0
+                xls_row_count += 1
 
             # Get artifact's attributes
             attributes = artifact.getAttributes()
@@ -196,9 +200,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 # Select tag with ID reportedinstalls - 0 because report_html.select returns an array
                 table = report_html.select("#reportedinstalls")[0]
                 table.append(row)
-            
-            if generateXLS:
-                xls_row_count += 1
 
             # Update progress bar every 10 seconds
             if art_count % 10 == 0:
@@ -225,6 +226,14 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             Case.getCurrentCase().addReport(html_file_name, self.moduleName, "LFA HTML Report")
 
         if generateXLS:
+            report_xls_ws.add_table(0,0,xls_row_count,xls_col_count, 
+                                            {'columns':[
+                                                {'header': 'Program name'},
+                                                {'header': 'Event'},
+                                                {'header': 'Time of report'},
+                                                {'header': 'Path to program'},
+                                                {'header': 'Is installed'}
+                                            ]})
             report_xls_ws.write(xls_row_count+1, 0, files_info_str)
             report_xls_wb.close()
             # Add the report to the Case, so it is shown in the tree
