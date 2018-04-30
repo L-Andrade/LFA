@@ -409,7 +409,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         Level.INFO, "Copying 2nd att for .wer file of id " + str(file.getId()))
 
                 reported_art.addAttribute(BlackboardAttribute(
-                    self.att_event_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(res['EventTime'])))
+                    self.att_event_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['EventTime'])))
                 self.log(
                         Level.INFO, "Copying 3rd att for .wer file of id " + str(file.getId()))
 
