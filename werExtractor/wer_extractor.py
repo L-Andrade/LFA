@@ -63,9 +63,9 @@ def find_dmp_files(pathToFile):
         return{'Error': 'unable to parse file'}
     
 
-def read_file_lines(path):
+def _read_file_lines(pathToFile):
     try:
-        f = codecs.open(path, 'r', encoding='utf-16le')
+        f = codecs.open(pathToFile, 'r', encoding='utf-16le')
         lines = f.readlines()
         f.close()
         return lines
