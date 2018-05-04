@@ -173,19 +173,20 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             # Check if the reported program is installed
             # Create the cell
+            default_is_installed = "Recent Activity was not run" if len(art_list_installed_progs) == 0 else "No"
             if generateHTML:
                 is_installed_cell = report_html.new_tag("td")
                 # Default value is No
-                is_installed_cell.string = "No"
+                is_installed_cell.string = default_is_installed
 
             if generateXLS:
-                report_xls_ws.write(xls_row_count, xls_col_count, "No")
+                report_xls_ws.write(xls_row_count, xls_col_count, default_is_installed)
             
             # Search through installed programs...
             # Get reported app name
             reported_app_name = artifact.getAttribute(att_reported_app_name).getValueString().lower()
             for art_installed_prog in art_list_installed_progs:
-                installed_prog_name = art_installed_prog.getAttribute(att_installed_prog_name).getValueString().lower().encode("utf-8")
+                installed_prog_name = art_installed_prog.getAttribute(att_installed_prog_name).getValueString().lower().decode('utf-16').encode('utf-8')
                 if installed_prog_name.find(reported_app_name) is not -1:
                     # Change is installed to Yes and break cycle
                     if generateHTML:
@@ -233,6 +234,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                                                 {'header': 'Event'},
                                                 {'header': 'Time of report'},
                                                 {'header': 'Path to program'},
+                                                {'header': 'Dump files'},
                                                 {'header': 'Is installed'}
                                             ]})
             report_xls_ws.write(xls_row_count+1, 0, files_info_str)
