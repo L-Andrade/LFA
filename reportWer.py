@@ -186,7 +186,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Get reported app name
             reported_app_name = artifact.getAttribute(att_reported_app_name).getValueString().lower()
             for art_installed_prog in art_list_installed_progs:
-                installed_prog_name = art_installed_prog.getAttribute(att_installed_prog_name).getValueString().lower().decode('utf-16').encode('utf-8')
+                installed_prog_name = art_installed_prog.getAttribute(att_installed_prog_name).getValueString().lower().decode("utf-16-le").encode("utf-8")
                 if installed_prog_name.find(reported_app_name) is not -1:
                     # Change is installed to Yes and break cycle
                     if generateHTML:
