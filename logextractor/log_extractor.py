@@ -35,7 +35,7 @@ def is_valid_ipv4(address):
             socket.inet_aton(address)
         except socket.error:
             return False
-    except socket.error
+    except socket.error:
         return False
     return True
 
