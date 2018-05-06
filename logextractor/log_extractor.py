@@ -27,22 +27,27 @@ def extract_ip_addresses(path_to_file):
 
     return my_dict
 
-def is_valid_ipv4(ipv4):
+def is_valid_ipv4(address):
     try:
-        socket.inet_aton(ipv4)
-        return True
+        socket.inet_pton(socket.AF_INET, address)
+    except AttributeError:
+        try:
+            socket.inet_aton(address)
+        except socket.error:
+            return False
+    except socket.error
+        return False
+    return True
+
+def is_valid_ipv6(address):
+    try:
+        socket.inet_pton(socket.AF_INET6, address)
     except socket.error:
         return False
+    return True
 
-def is_valid_ipv6(ipv6):
-    try:
-        socket.inet_pton(ipv6)
-        return True
-    except socket.error:
-        return False
-
-def is_valid_ip(ip)
-    return is_valid_ipv4(ip) or is_valid_ipv6(ip)
+def is_valid_ip(address):
+    return is_valid_ipv4(address) or is_valid_ipv6(address)
 
 def read_file_lines(path_to_file):
     try:
