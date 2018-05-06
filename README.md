@@ -2,6 +2,14 @@
 
 Log Forensics for Autopsy
 
+# Modules
+
+findLogFilesGUI: A file ingest module that finds log files (.evtx, .log, .dmp, .wer, .etl). In case of .wer file it also creates a Reported program artifact if the .wer is valid.
+
+reportWer: A report module that queries the blackboard for the information that the file ingest produced and reports it to HTML and Excel.
+
+# Project description (PT)
+
 Área Temática: DA (Desenvolvimento de Aplicações)
 
 Descrição:
