@@ -13,7 +13,7 @@ HUNDREDS_OF_NANOSECONDS = 10000000
 
 
 def extract_default_keys(pathToFile):
-    lines = read_file_lines(pathToFile)
+    lines = _read_file_lines(pathToFile)
 
     myDict = {}
     try:
@@ -39,7 +39,7 @@ def extract_default_keys(pathToFile):
 
 
 def extract_specific_key(pathToFile, key):
-    lines = read_file_lines(pathToFile)
+    lines = _read_file_lines(pathToFile)
     try:
         for line in lines:
             sLines = line.split("=")
@@ -51,7 +51,7 @@ def extract_specific_key(pathToFile, key):
 
 
 def find_dmp_files(pathToFile):
-    lines = read_file_lines(pathToFile)
+    lines = _read_file_lines(pathToFile)
     res = []
     try:
         for line in lines:

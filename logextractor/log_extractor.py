@@ -9,7 +9,7 @@ IP_REGEX_PATTERN = r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b"
 
 
 def extract_ip_addresses(path_to_file):
-    lines = read_file_lines(path_to_file)
+    lines = _read_file_lines(path_to_file)
 
     p = re.compile(IP_REGEX_PATTERN)
 
@@ -49,7 +49,7 @@ def is_valid_ipv6(address):
 def is_valid_ip(address):
     return is_valid_ipv4(address) or is_valid_ipv6(address)
 
-def read_file_lines(path_to_file):
+def _read_file_lines(path_to_file):
     try:
         f = open(path_to_file, 'r')
         lines = f.readlines()
