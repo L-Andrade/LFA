@@ -41,6 +41,7 @@
 import jarray
 import inspect
 import os
+import logextractor
 import werExtractor
 from java.lang import System
 from java.util.logging import Level
@@ -79,6 +80,8 @@ from org.sleuthkit.autopsy.datamodel import ContentUtils
 from java.lang import IllegalArgumentException
 
 WER_FOLDER_PATH = "\\Wers"
+LOG_FOLDER_PATH = "\\StandardLogs"
+DB_PATH = "\\guiSettings.db"
 
 # TODO: Rename this to something more specific
 
@@ -149,7 +152,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         # Get Sleuthkit case
         skCase = Case.getCurrentCase().getSleuthkitCase()
 
-        # Create new artifact type
+        # Create new artifact types
         try:
             self.log(Level.INFO, "Create new Artifact Log File")
             self.art_log_file = skCase.addBlackboardArtifactType(
@@ -163,9 +166,16 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             self.art_reported_program = skCase.addBlackboardArtifactType(
                 "TSK_LFA_REPORTED_PROGRAMS", "Reported programs")
         except:
-            self.log(Level.INFO, "Artifacts creation error, Reported Program ==> ")
-            self.art_reported_program = skCase.getArtifactType(
-                "TSK_LFA_REPORTED_PROGRAMS")
+            self.log(Level.INFO, "Artifacts creation error, Reported program ==> ")
+            self.art_reported_program = skCase.getArtifactType("TSK_LFA_REPORTED_PROGRAMS")
+
+        try:
+            self.log(Level.INFO, "Create new Artifact Logged IP")
+            self.art_logged_ip = skCase.addBlackboardArtifactType(
+                "TSK_LFA_LOG_FILE_IP", "Logged IP addresses")
+        except:
+            self.log(Level.INFO, "Artifacts creation error, Log file IP ==> ")
+            self.art_logged_ip = skCase.getArtifactType("TSK_LFA_LOG_FILE_IP")
 
         # Create the attribute type Windows log, if it already exists, catch error
         # If Yes, Log is in a Windows directory. If No, Log is in a normal directory
@@ -247,6 +257,20 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute Dump files")
 
+        # Create the attribute type IP, which is an IP address
+        try:
+            self.att_ip_address = skCase.addArtifactAttributeType(
+                'TSK_LFA_IP_ADDRESS', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "IP address")
+        except:
+            self.log(Level.INFO, "Error creating attribute IP address")
+
+        # Create the attribute type Occurences, which means how many times an IP was seen in a file
+        try:
+            self.att_ip_counter = skCase.addArtifactAttributeType(
+                'TSK_LFA_IP_COUNTER', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Occurences")
+        except:
+            self.log(Level.INFO, "Error creating attribute IP counter")
+
 
         # Get Attributes after they are created
         self.att_windows_path = skCase.getAttributeType("TSK_LFA_WINDOWS_PATH")
@@ -262,16 +286,27 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.att_event_name = skCase.getAttributeType("TSK_LFA_EVENT_NAME")
         self.att_event_time = skCase.getAttributeType("TSK_LFA_EVENT_TIME")
         self.att_dump_files = skCase.getAttributeType("TSK_LFA_DUMP_FILES")
+        self.att_ip_address = skCase.getAttributeType("TSK_LFA_IP_ADDRESS")
+        self.att_ip_counter = skCase.getAttributeType("TSK_LFA_IP_COUNTER")
+
+        self.temp_dir = Case.getCurrentCase().getTempDirectory()
 
         if self.local_settings.getCheckWER():
             # Create wer directory in temp directory, if it exists then continue on processing
-            self.temp_dir = Case.getCurrentCase().getTempDirectory()
-            self.log(Level.INFO, "create Directory " + self.temp_dir)
+            self.log(Level.INFO, "Create .wer directory " + self.temp_dir)
             try:
                 os.mkdir(self.temp_dir + WER_FOLDER_PATH)
             except:
                 self.log(
                     Level.INFO, "Wers directory already exists " + self.temp_dir)
+
+        if self.local_settings.getCheckLog():
+            self.log(Level.INFO, "Create .log directory " + self.temp_dir)
+            try:
+                os.mkdir(self.temp_dir + LOG_FOLDER_PATH)
+            except:
+                self.log(
+                    Level.INFO, "Logs directory already exists " + self.temp_dir)
 
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException("Oh No!")
@@ -388,7 +423,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         Level.INFO, "Extracted .wer file of id " + str(file.getId()))
                 
                 # Check if any error occured
-                if(wer_info.get('Error')):
+                if wer_info.get('Error'):
                     self.log(
                         Level.INFO, "Could not parse .wer file of id: " + str(file.getId()))
                     return IngestModule.ProcessResult.OK
@@ -434,6 +469,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     self.att_dump_files, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, dmp))
                 self.log(
                         Level.INFO, "Copying 4th att for .wer file of id " + str(file.getId()))
+                
                 # Add artifact to Blackboard
                 try:
                     # Index the artifact for keyword search
@@ -442,13 +478,79 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     self.log(Level.SEVERE, "Error indexing artifact " +
                              reported_art.getDisplayName())
                 self.log(
-                        Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))    
+                        Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
                         
 
                 # Fire an event to notify the UI and others that there is a new log artifact
                 IngestServices.getInstance().fireModuleDataEvent(
                    ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
                                    self.art_reported_program, None))
+
+
+            #################################################
+            #     _                  __  _  _               #
+            #    | |                / _|(_)| |              #
+            #    | |  ___    __ _  | |_  _ | |  ___  ___    #
+            #    | | / _ \  / _` | |  _|| || | / _ \/ __|   #
+            #  _ | || (_) || (_| | | |  | || ||  __/\__ \   #
+            # (_)|_| \___/  \__, | |_|  |_||_| \___||___/   #
+            #                __/ |                          #
+            #               |___/                           #
+            #################################################
+            
+            if file.getName().lower().endswith(".log"):
+                # Save the file locally in the temp folder and use file id as name to reduce collisions
+                self.temp_log_path = os.path.join(
+                    self.temp_dir + LOG_FOLDER_PATH, str(file.getId()))
+                ContentUtils.writeToFile(file, File(self.temp_log_path))
+                self.log(Level.INFO, "Copying .log file of id " + str(file.getId()))
+
+                # Get the parsed result
+                log_info = logextractor.log_extractor.extract_ip_addresses(
+                    self.temp_log_path)
+                self.log(
+                        Level.INFO, "Extracted .log file of id " + str(file.getId()))
+                self.log(Level.INFO, "Log info size: " + str(len(log_info)))
+                
+                # Check if any error occured
+                error = log_info.get('Error')
+                if error:
+                    self.log(
+                        Level.INFO, "ERROR: " + error + " at file of id: " + str(file.getId()))
+                    return IngestModule.ProcessResult.OK
+
+                # A standard log can have multiple artifacts
+                # As long as it has more than one IP address registered
+                # So let's iterate over the dictionary
+                for (ip, counter) in log_info.iteritems():
+                    # Create artifact
+                    ip_art = file.newArtifact(self.art_logged_ip.getTypeID())
+                    self.log(Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
+
+                    # Add IP to artifact
+                    ip_art.addAttribute(BlackboardAttribute(self.att_ip_address, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(ip)))
+
+                    # Add counter to artifact
+                    ip_art.addAttribute(BlackboardAttribute(self.att_ip_counter, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(counter)))
+
+                    # Add file path to artifact
+                    ip_art.addAttribute(BlackboardAttribute(self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
+
+                    # Add artifact to Blackboard
+                    try:
+                        # Index the artifact for keyword search
+                        blackboard.indexArtifact(ip_art)
+                    except Blackboard.BlackboardException as e:
+                        self.log(Level.SEVERE, "Error indexing artifact " +
+                                 ip_art.getDisplayName())
+                    self.log(
+                            Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
+
+                    # Fire an event to notify the UI and others that there is a new log artifact
+                    IngestServices.getInstance().fireModuleDataEvent(
+                       ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
+                                       self.art_logged_ip, None))
+
 
         return IngestModule.ProcessResult.OK
 
@@ -458,7 +560,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                                               LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
                                               str(self.filesFound) + " total files found.")
-        ingestServices=IngestServices.getInstance().postMessage(message)
+        ingestServices = IngestServices.getInstance().postMessage(message)
 
 # Stores the settings that can be changed for each ingest job
 # All fields in here must be serializable.  It will be written to disk.
@@ -585,7 +687,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
     # Check database for log type flags
     def checkDatabaseEntries(self):
         head, tail=os.path.split(os.path.abspath(__file__))
-        settings_db=head + "\\guiSettings.db"
+        settings_db=head + DB_PATH
         try:
             Class.forName("org.sqlite.JDBC").newInstance()
             dbConn=DriverManager.getConnection(
@@ -629,7 +731,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
     def saveFlagSetting(self, flag, value):
 
         head, tail=os.path.split(os.path.abspath(__file__))
-        settings_db=head + "\\guiSettings.db"
+        settings_db=head + DB_PATH
         try:
             Class.forName("org.sqlite.JDBC").newInstance()
             dbConn=DriverManager.getConnection(
