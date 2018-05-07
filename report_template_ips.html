@@ -18,9 +18,8 @@
                 </div>
                 <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
                     <ul class="nav navbar-nav">
-                        <li class="active"><a href="#">Report <span class="sr-only">(current)</span></a></li>
-                        <li><a href="#">Reported Programs</a></li>
-                        <li><a href="#">Installed Programs</a></li>
+                        <li><a href="#" id="programslink">Reported programs</a></li>
+                        <li  class="active"><a href="#" id="loggedipslink">Logged IPs <span class="sr-only">(current)</span></a></li>
                     </ul>
                 </div>
             </div>
@@ -29,20 +28,17 @@
     <div class="container-fluid">
         <div class="panel panel-default">
         <!-- Default panel contents -->
-            <div class="panel-heading">List of installed and reported programs</div>
+            <div class="panel-heading">IPs found in .log files</div>
             <div class="panel-body">
                 <p id="tableinfo"></p>
             </div>
             <!-- Table -->
-            <table class="table" id="reportedinstalls">
+            <table class="table" id="loggedipstable">
                 <thead>
                     <tr>
-                        <th>Program name</th>
-                        <th>Event</th>
-                        <th>Time of report</th>
-                        <th>Path to program</th>
-                        <th>Dump files</th>
-                        <th>Is installed</th>
+                        <th>IP Address</th>
+                        <th>Occurences</th>
+                        <th>Log path</th>
                     </tr>
                 </thead>
                 <tbody>
