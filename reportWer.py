@@ -33,11 +33,13 @@ import os
 import bs4
 import xlsxwriter
 import codecs
+import chardet
 
 from math import ceil
 from java.lang import System
 from java.util.logging import Level
 from org.sleuthkit.autopsy.casemodule import Case
+from org.sleuthkit.autopsy.casemodule.services import Services
 from org.sleuthkit.autopsy.coreutils import Logger
 from org.sleuthkit.autopsy.report import GeneralReportModuleAdapter
 from org.sleuthkit.autopsy.report.ReportProgressPanel import ReportStatus
@@ -185,8 +187,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         progressBar.updateStatusLabel("Going through artifacts now...")
 
         # Get Attribute types
-        att_installed_prog_name = skCase.getAttributeType("TSK_PROG_NAME")
-        att_reported_app_name = skCase.getAttributeType("TSK_LFA_APP_NAME")
+        att_reported_app_path = skCase.getAttributeType("TSK_LFA_APP_PATH")
 
         #########################################################
         #  _____                            _             _     #
@@ -224,16 +225,31 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             
             # Search through installed programs...
             # Get reported app name
-            reported_app_name = artifact.getAttribute(att_reported_app_name).getValueString().lower()
-            for art_installed_prog in art_list_installed_progs:
-                installed_prog_name = art_installed_prog.getAttribute(att_installed_prog_name).getValueString().lower().decode("utf-16-le").encode("utf-8")
-                if installed_prog_name.find(reported_app_name) is not -1:
-                    # Change is installed to Yes and break cycle
-                    if generateHTML:
-                        is_installed_cell.string = "Yes"
-                    if generateXLS:
-                        xls_ws_reported.write(xls_row_count, XLS_REPORTED_HEADER_COUNT-1, "Yes")
-                    break
+            reported_app_path = artifact.getAttribute(att_reported_app_path).getValueString()
+            # Take drive off path (ex: C:)
+            reported_app_path = reported_app_path[3:]
+            # Invert slashes
+            reported_app_path = reported_app_path.replace('\\', '/').encode('utf-8')
+            # teste = reported_app_path.split('/')[-1]
+            reported_app_path = reported_app_path.replace('\r','')
+            reported_app_path = reported_app_path.replace('\t','')
+            reported_app_path = reported_app_path.replace('\n','')
+
+            
+            data_source = artifact.getDataSource()
+            services = Services(skCase)
+            file_manager = services.getFileManager()
+            files_with_name_xd = file_manager.findFiles(data_source, reported_app_path)
+
+            #debug = html_programs.select('#debug')[0]
+            #debug.string += "\\\\" + reported_app_path + " / " + teste + str(files_with_name_xd)
+
+            if files_with_name_xd:
+                if generateHTML:
+                    is_installed_cell.string = "Yes"
+                if generateXLS:
+                    xls_ws_reported.write(xls_row_count,XLS_REPORTED_HEADER_COUNT-1, "Yes")
+
             
             if generateHTML:
                 # Append row to table
@@ -303,7 +319,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                                                 {'header': 'Occurences'},
                                                 {'header': 'Log path'}
                                             ]})
-
+        
         # Third additional step before saving
         progressBar.increment()
         progressBar.updateStatusLabel("Saving to report...")

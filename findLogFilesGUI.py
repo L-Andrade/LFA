@@ -360,8 +360,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             art = file.newArtifact(self.art_log_file.getTypeID())
 
             # Register if file is in a Windows path
-            str_windows = "Yes" if "programdata\\microsoft\\windows\\wer" in file.getParentPath(
-            ).lower() or "\\windows" in file.getParentPath().lower() else "No"
+            str_windows = "Yes" if "programdata\\microsoft\\windows\\wer" in file.getParentPath().lower() or "\\windows" in file.getParentPath().lower() else "No"
             art.addAttribute(BlackboardAttribute(
                 self.att_windows_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str_windows))
 
