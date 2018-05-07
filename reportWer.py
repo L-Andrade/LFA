@@ -81,6 +81,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         return "LFA_" + Case.getCurrentCase().getName() + ".xlsx"
 
     def write_artifact_to_report(self, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_file, xls_ws):
+        row = None
         # Create row
         if generateHTML:
             row = html_file.new_tag("tr")
@@ -148,6 +149,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         progressBar.increment()
         progressBar.updateStatusLabel("Creating report(s)")
 
+        html_programs = None
+        html_ips = None
+
         # Init reports
         if generateHTML:
             # Get html_file_name
@@ -177,9 +181,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             xls_ws_reported = report_xls_wb.add_worksheet()
             xls_ws_logged_ips = report_xls_wb.add_worksheet()
 
-            # Create counter to operate Excel
-            # Start row at 1 because of headers
-            xls_row_count = 1
+        # Create counter to operate Excel
+        # Start row at 1 because of headers
+        xls_row_count = 1
 
 
         # Second additional step here
@@ -229,26 +233,22 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Take drive off path (ex: C:)
             reported_app_path = reported_app_path[3:]
             # Invert slashes
-            reported_app_path = reported_app_path.replace('\\', '/').encode('utf-8')
-            # teste = reported_app_path.split('/')[-1]
-            reported_app_path = reported_app_path.replace('\r','')
-            reported_app_path = reported_app_path.replace('\t','')
-            reported_app_path = reported_app_path.replace('\n','')
+            reported_app_path = reported_app_path.replace('\\', '/').encode('utf-8').split('/')[-1].replace('\r','').replace('\t','').replace('\n','')
 
             
             data_source = artifact.getDataSource()
             services = Services(skCase)
             file_manager = services.getFileManager()
-            files_with_name_xd = file_manager.findFiles(data_source, reported_app_path)
+            files_found = file_manager.findFiles(data_source, reported_app_path)
 
             #debug = html_programs.select('#debug')[0]
-            #debug.string += "\\\\" + reported_app_path + " / " + teste + str(files_with_name_xd)
+            #debug.string += "\\\\" + reported_app_path + " / " + teste + str(files_found)
 
-            if files_with_name_xd:
+            if files_found:
                 if generateHTML:
                     is_installed_cell.string = "Yes"
                 if generateXLS:
-                    xls_ws_reported.write(xls_row_count,XLS_REPORTED_HEADER_COUNT-1, "Yes")
+                    xls_ws_reported.write(xls_row_count-1,XLS_REPORTED_HEADER_COUNT-1, "Yes")
 
             
             if generateHTML:
