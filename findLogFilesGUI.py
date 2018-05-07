@@ -167,7 +167,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 "TSK_LFA_REPORTED_PROGRAMS", "Reported programs")
         except:
             self.log(Level.INFO, "Artifacts creation error, Reported program ==> ")
-            self.art_reported_program = skCase.getArtifactType("TSK_LFA_REPORTED_PROGRAMS")
+            self.art_reported_program = skCase.getArtifactType(
+                "TSK_LFA_REPORTED_PROGRAMS")
 
         try:
             self.log(Level.INFO, "Create new Artifact Logged IP")
@@ -271,7 +272,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute IP counter")
 
-
         # Get Attributes after they are created
         self.att_windows_path = skCase.getAttributeType("TSK_LFA_WINDOWS_PATH")
         self.att_log_size = skCase.getAttributeType("TSK_LFA_LOG_SIZE")
@@ -360,8 +360,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             art = file.newArtifact(self.art_log_file.getTypeID())
 
             # Register if file is in a Windows path
-            str_windows = "Yes" if "programdata\\microsoft\\windows\\wer" in file.getParentPath(
-            ).lower() or "\\windows" in file.getParentPath().lower() else "No"
+            str_windows = "Yes" if "programdata\\microsoft\\windows\\wer" in file.getParentPath().lower() or "\\windows" in file.getParentPath().lower() else "No"
             art.addAttribute(BlackboardAttribute(
                 self.att_windows_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str_windows))
 
@@ -414,62 +413,65 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 self.temp_wer_path = os.path.join(
                     self.temp_dir + WER_FOLDER_PATH, str(file.getId()))
                 ContentUtils.writeToFile(file, File(self.temp_wer_path))
-                self.log(Level.INFO, "Copying .wer file of id " + str(file.getId()))
+                self.log(Level.INFO, "Copying .wer file of id " +
+                         str(file.getId()))
 
                 # Get the parsed result
                 wer_info = werExtractor.wer_extractor.extract_default_keys(
                     self.temp_wer_path)
                 self.log(
-                        Level.INFO, "Extracted .wer file of id " + str(file.getId()))
-                
+                    Level.INFO, "Extracted .wer file of id " + str(file.getId()))
+
                 # Check if any error occured
                 if wer_info.get('Error'):
                     self.log(
                         Level.INFO, "Could not parse .wer file of id: " + str(file.getId()))
                     return IngestModule.ProcessResult.OK
-                
+
                 # Create new program artifact if .wer file is valid
-                reported_art = file.newArtifact(self.art_reported_program.getTypeID())
+                reported_art = file.newArtifact(
+                    self.art_reported_program.getTypeID())
                 self.log(
-                        Level.INFO, "Created new artifac of type art_reported_program for file of id " + str(file.getId()))
-                
+                    Level.INFO, "Created new artifac of type art_reported_program for file of id " + str(file.getId()))
+
                 # Add normal attributes to artifact
-                reported_art.addAttribute(BlackboardAttribute(self.att_app_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['AppName'])))
+                reported_art.addAttribute(BlackboardAttribute(
+                    self.att_app_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['AppName'])))
                 self.log(
-                        Level.INFO, "Copying 1st att for .wer file of id " + str(file.getId()))
+                    Level.INFO, "Copying 1st att for .wer file of id " + str(file.getId()))
 
                 reported_art.addAttribute(BlackboardAttribute(
                     self.att_event_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['FriendlyEventName'])))
                 self.log(
-                        Level.INFO, "Copying 2nd att for .wer file of id " + str(file.getId()))
+                    Level.INFO, "Copying 2nd att for .wer file of id " + str(file.getId()))
 
                 reported_art.addAttribute(BlackboardAttribute(
                     self.att_event_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['EventTime'])))
                 self.log(
-                        Level.INFO, "Copying 3rd att for .wer file of id " + str(file.getId()))
+                    Level.INFO, "Copying 3rd att for .wer file of id " + str(file.getId()))
 
                 reported_art.addAttribute(BlackboardAttribute(
                     self.att_app_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['AppPath'])))
                 self.log(
-                        Level.INFO, "Copying 4th att for .wer file of id " + str(file.getId()))
+                    Level.INFO, "Copying 4th att for .wer file of id " + str(file.getId()))
 
-                #adding dump file search result
+                # adding dump file search result
 
                 dmp = werExtractor.wer_extractor.find_dmp_files(
                     self.temp_wer_path)
                 self.log(
-                        Level.INFO, "Extracted dump files names from .wer file of id " + str(file.getId()))
+                    Level.INFO, "Extracted dump files names from .wer file of id " + str(file.getId()))
 
                 if(not dmp or "Error" in dmp):
                     dmp = "None"
                 else:
                     dmp = ', '.join(dmp)
-                
+
                 reported_art.addAttribute(BlackboardAttribute(
                     self.att_dump_files, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, dmp))
                 self.log(
-                        Level.INFO, "Copying 4th att for .wer file of id " + str(file.getId()))
-                
+                    Level.INFO, "Copying 4th att for .wer file of id " + str(file.getId()))
+
                 # Add artifact to Blackboard
                 try:
                     # Index the artifact for keyword search
@@ -478,14 +480,12 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     self.log(Level.SEVERE, "Error indexing artifact " +
                              reported_art.getDisplayName())
                 self.log(
-                        Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
-                        
+                    Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
 
                 # Fire an event to notify the UI and others that there is a new log artifact
                 IngestServices.getInstance().fireModuleDataEvent(
-                   ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                                   self.art_reported_program, None))
-
+                    ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
+                                    self.art_reported_program, None))
 
             #################################################
             #     _                  __  _  _               #
@@ -497,21 +497,22 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             #                __/ |                          #
             #               |___/                           #
             #################################################
-            
+
             if file.getName().lower().endswith(".log"):
                 # Save the file locally in the temp folder and use file id as name to reduce collisions
                 self.temp_log_path = os.path.join(
                     self.temp_dir + LOG_FOLDER_PATH, str(file.getId()))
                 ContentUtils.writeToFile(file, File(self.temp_log_path))
-                self.log(Level.INFO, "Copying .log file of id " + str(file.getId()))
+                self.log(Level.INFO, "Copying .log file of id " +
+                         str(file.getId()))
 
                 # Get the parsed result
                 log_info = logextractor.log_extractor.extract_ip_addresses(
                     self.temp_log_path)
                 self.log(
-                        Level.INFO, "Extracted .log file of id " + str(file.getId()))
+                    Level.INFO, "Extracted .log file of id " + str(file.getId()))
                 self.log(Level.INFO, "Log info size: " + str(len(log_info)))
-                
+
                 # Check if any error occured
                 error = log_info.get('Error')
                 if error:
@@ -525,16 +526,20 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 for (ip, counter) in log_info.iteritems():
                     # Create artifact
                     ip_art = file.newArtifact(self.art_logged_ip.getTypeID())
-                    self.log(Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
+                    self.log(
+                        Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
 
                     # Add IP to artifact
-                    ip_art.addAttribute(BlackboardAttribute(self.att_ip_address, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(ip)))
+                    ip_art.addAttribute(BlackboardAttribute(
+                        self.att_ip_address, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(ip)))
 
                     # Add counter to artifact
-                    ip_art.addAttribute(BlackboardAttribute(self.att_ip_counter, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, counter))
+                    ip_art.addAttribute(BlackboardAttribute(
+                        self.att_ip_counter, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, counter))
 
                     # Add file path to artifact
-                    ip_art.addAttribute(BlackboardAttribute(self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
+                    ip_art.addAttribute(BlackboardAttribute(
+                        self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
 
                     # Add artifact to Blackboard
                     try:
@@ -544,13 +549,12 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         self.log(Level.SEVERE, "Error indexing artifact " +
                                  ip_art.getDisplayName())
                     self.log(
-                            Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
+                        Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
 
                     # Fire an event to notify the UI and others that there is a new log artifact
                     IngestServices.getInstance().fireModuleDataEvent(
-                       ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                                       self.art_logged_ip, None))
-
+                        ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
+                                        self.art_logged_ip, None))
 
         return IngestModule.ProcessResult.OK
 
@@ -568,7 +572,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
 
 class LogForensicsForAutopsyFileIngestModuleWithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID=1L
+    serialVersionUID = 1L
 
     def __init__(self):
         pass
@@ -580,31 +584,31 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettings(IngestModuleIngestJob
         return self.checkWER
 
     def setCheckWER(self, checkWER):
-        self.checkWER=checkWER
+        self.checkWER = checkWER
 
     def getCheckETL(self):
         return self.checkETL
 
     def setCheckETL(self, checkETL):
-        self.checkETL=checkETL
+        self.checkETL = checkETL
 
     def getCheckLog(self):
         return self.checkLog
 
     def setCheckLog(self, checkLog):
-        self.checkLog=checkLog
+        self.checkLog = checkLog
 
     def getCheckDmp(self):
         return self.checkDmp
 
     def setCheckDmp(self, checkDmp):
-        self.checkDmp=checkDmp
+        self.checkDmp = checkDmp
 
     def getCheckEVTx(self):
         return self.checkEVTx
 
     def setCheckEVTx(self, checkEVTx):
-        self.checkEVTx=checkEVTx
+        self.checkEVTx = checkEVTx
 
 # UI that is shown to user for each ingest job so they can configure the job.
 # TODO: Rename this
@@ -624,7 +628,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
     # prepopulate the UI
     # TODO: Update this for your UI
     def __init__(self, settings):
-        self.local_settings=settings
+        self.local_settings = settings
         self.initComponents()
         self.customizeComponents()
 
@@ -652,20 +656,20 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
     def initComponents(self):
         self.setLayout(BoxLayout(self, BoxLayout.Y_AXIS))
 
-        self.labelCheckText=JLabel("Check for type files: ")
+        self.labelCheckText = JLabel("Check for type files: ")
         self.labelCheckText.setEnabled(True)
-        self.errorMessageLabel=JLabel(" ")
+        self.errorMessageLabel = JLabel(" ")
         self.errorMessageLabel.setEnabled(True)
 
-        self.checkboxWER=JCheckBox(
+        self.checkboxWER = JCheckBox(
             "WER", actionPerformed=self.checkBoxEventWER)
-        self.checkboxETL=JCheckBox(
+        self.checkboxETL = JCheckBox(
             "ETL", actionPerformed=self.checkBoxEventETL)
-        self.checkboxLog=JCheckBox(
+        self.checkboxLog = JCheckBox(
             "Log", actionPerformed=self.checkBoxEventLog)
-        self.checkboxEVTx=JCheckBox(
+        self.checkboxEVTx = JCheckBox(
             "EVTx", actionPerformed=self.checkBoxEventEVTx)
-        self.checkboxDmp=JCheckBox(
+        self.checkboxDmp = JCheckBox(
             "Dmp", actionPerformed=self.checkBoxEventDmp)
 
         self.add(self.labelCheckText)
@@ -686,19 +690,19 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
 
     # Check database for log type flags
     def checkDatabaseEntries(self):
-        head, tail=os.path.split(os.path.abspath(__file__))
-        settings_db=head + DB_PATH
+        head, tail = os.path.split(os.path.abspath(__file__))
+        settings_db = head + DB_PATH
         try:
             Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn=DriverManager.getConnection(
+            dbConn = DriverManager.getConnection(
                 "jdbc:sqlite:%s" % settings_db)
         except SQLException as e:
             self.errorMessageLabel.setText("Error opening database!")
 
         try:
-            stmt=dbConn.createStatement()
-            query='SELECT * FROM settings WHERE id = 1;'
-            resultSet=stmt.executeQuery(query)
+            stmt = dbConn.createStatement()
+            query = 'SELECT * FROM settings WHERE id = 1;'
+            resultSet = stmt.executeQuery(query)
             while resultSet.next():
                 self.local_settings.setCheckWER(
                     (resultSet.getInt("checkWER") > 0))
@@ -730,11 +734,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
     # Save ONE log flag
     def saveFlagSetting(self, flag, value):
 
-        head, tail=os.path.split(os.path.abspath(__file__))
-        settings_db=head + DB_PATH
+        head, tail = os.path.split(os.path.abspath(__file__))
+        settings_db = head + DB_PATH
         try:
             Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn=DriverManager.getConnection(
+            dbConn = DriverManager.getConnection(
                 "jdbc:sqlite:%s" % settings_db)
         except SQLException as e:
             self.errorMessageLabel.setText("Error opening settings")
@@ -742,8 +746,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         int_value = 1 if value else 0
 
         try:
-            stmt=dbConn.createStatement()
-            query='UPDATE settings SET ' + flag + \
+            stmt = dbConn.createStatement()
+            query = 'UPDATE settings SET ' + flag + \
                 ' = ' + str(int_value) + ' WHERE id = 1;'
 
             stmt.executeUpdate(query)
