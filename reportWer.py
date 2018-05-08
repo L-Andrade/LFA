@@ -172,7 +172,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         if generateXLS:
             # Get xls_file_name
-            # TODO: Format Excel and add headers
             xls_file_name = os.path.join(baseReportDir, self.getRelativeFilePathXLS())
 
             # Create a workbook and add a worksheet.
@@ -187,10 +186,12 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         # Second additional step here
         progressBar.increment()
-        progressBar.updateStatusLabel("Going through Reported program artifacts now, takes longer than IPs...")
+        progressBar.updateStatusLabel("Going through Reported program artifacts now, takes some time...")
 
         # Get Attribute types
         att_reported_app_path = skCase.getAttributeType("TSK_LFA_APP_PATH")
+        att_ip_counter = skCase.getAttributeType("TSK_LFA_IP_COUNTER")
+        att_ip_address = skCase.getAttributeType("TSK_LFA_IP_ADDRESS")
 
         #########################################################
         #  _____                            _             _     #
@@ -212,45 +213,33 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # So that we can add more info to that row reference if required
             # Not required for Excel because it can be done with coordinates
             row = self.write_artifact_to_report(progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_programs, xls_ws_reported)
-
-            # Check if the reported program is installed
-            # Create the cell
-            default_is_installed = "Recent Activity was not run" if len(art_list_installed_progs) == 0 else "No"
-            if generateHTML:
-                is_installed_cell = html_programs.new_tag("td")
-                # Default value is No
-                is_installed_cell.string = default_is_installed
-
-            if generateXLS:
-                # Is installed header is the last one
-                xls_ws_reported.write(xls_row_count, XLS_REPORTED_HEADER_COUNT-1, default_is_installed)
-                xls_row_count += 1
             
             # Search through installed programs...
             # Get reported app name
             reported_app_path = artifact.getAttribute(att_reported_app_path).getValueString()
-            # Take drive off path (ex: C:)
+            # Take drive off path (ex: C:\)
             reported_app_path = reported_app_path[3:]
             # Invert slashes
             reported_app_path = reported_app_path.replace('\\', '/').encode('utf-8').split('/')[-1].replace('\r','').replace('\t','').replace('\n','')
 
-            
             data_source = artifact.getDataSource()
             services = Services(skCase)
             file_manager = services.getFileManager()
             files_found = file_manager.findFiles(data_source, reported_app_path)
 
-            #debug = html_programs.select('#debug')[0]
-            #debug.string += "\\\\" + reported_app_path + " / " + teste + str(files_found)
-
+            # Check if the reported program was found
             if files_found:
-                if generateHTML:
-                    is_installed_cell.string = "Yes"
-                if generateXLS:
-                    xls_ws_reported.write(xls_row_count-1,XLS_REPORTED_HEADER_COUNT-1, "Yes")
+                is_installed_string = "Yes"
+            else:
+                is_installed_string = "No"         
 
+            if generateXLS:
+                xls_ws_reported.write(xls_row_count,XLS_REPORTED_HEADER_COUNT-1, is_installed_string)
+                xls_row_count += 1
             
             if generateHTML:
+                is_installed_cell = html_programs.new_tag("td")
+                is_installed_cell.string = is_installed_string
                 # Append row to table
                 row.append(is_installed_cell)
 
@@ -298,6 +287,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         art_count = 0
         xls_row_count = 1
 
+        # Statistics variables
+        ip_dictionary = {}
+
         for art_logged_ip in art_list_logged_ips:
             art_count += 1
             row = self.write_artifact_to_report(progressBar, art_count, generateHTML, generateXLS, art_logged_ip, xls_row_count, html_ips, xls_ws_logged_ips)
@@ -307,6 +299,16 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             if generateHTML:
                 table = html_ips.select("#loggedipstable")[0]
                 table.append(row)
+
+            # For statistics
+            # IPs are seperated by file
+            # With this, we basically join the occurences counter
+            ip_address = art_logged_ip.getAttribute(att_ip_address).getValueString()
+            ip_counter = int(art_logged_ip.getAttribute(att_ip_counter).getValueString())
+            if ip_dictionary.get(ip_address):
+                ip_dictionary[ip_address] += ip_counter
+            else:
+                ip_dictionary[ip_address] = ip_counter
 
         # Add final info to IP reports
         if generateHTML:
@@ -323,7 +325,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         
         # Third additional step before saving
         progressBar.increment()
-        progressBar.updateStatusLabel("Saving to report...")
+        progressBar.updateStatusLabel("Saving reports...")
 
         if generateHTML:
             # Edit href to link each HTML page
@@ -343,6 +345,43 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             Case.getCurrentCase().addReport(html_file_name, self.moduleName, "LFA HTML Report")
 
         if generateXLS:
+            progressBar.updateStatusLabel("Generating Excel statistics...")
+            
+            # Generate statistics charts
+            xls_ws_statistics = report_xls_wb.add_worksheet()
+            chart_ips = report_xls_wb.add_chart({'type': 'column'})
+
+            # Change title
+            chart_ips.set_x_axis({
+                'name': 'IP address occurences',
+                'name_font': {'size': 14, 'bold': True},
+                'num_font':  {'italic': True },
+            })
+
+            # Row counter
+            xls_row_count = 0
+            # An array with two arrays inside
+            data = [[], []]
+
+            # Iterate over IP dictionary
+            for (ip,counter) in sorted(ip_dictionary.iteritems(), key = lambda (k,v): (v,k)):
+                data[0].append(ip)
+                data[1].append(counter)
+
+            # Write values in two seperate columns
+            xls_ws_statistics.write_column('A1', data[0])
+            xls_ws_statistics.write_column('B1', data[1])
+
+            # Create series
+            ip_dict_len = str(len(ip_dictionary))
+            chart_ips.add_series({
+                'categories': '=Sheet3!$A$1:$A$'+ip_dict_len,
+                'values':     '=Sheet3!$B$1:$B$'+ip_dict_len,
+                'gap': 2
+            })
+
+            xls_ws_statistics.insert_chart('C3', chart_ips)
+
             report_xls_wb.close()
             # Add the report to the Case, so it is shown in the tree
             Case.getCurrentCase().addReport(xls_file_name, self.moduleName, "LFA Excel Report")
