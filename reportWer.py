@@ -192,6 +192,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         att_reported_app_path = skCase.getAttributeType("TSK_LFA_APP_PATH")
         att_ip_counter = skCase.getAttributeType("TSK_LFA_IP_COUNTER")
         att_ip_address = skCase.getAttributeType("TSK_LFA_IP_ADDRESS")
+        att_event_name = skCase.getAttributeType("TSK_LFA_EVENT_NAME")
 
         #########################################################
         #  _____                            _             _     #
@@ -205,6 +206,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         #########################################################
 
         art_count = 0
+
+        # Statistics variables
+        event_dictionary = {}
 
         # Create a table row for each attribute
         for artifact in art_list_reported_progs:
@@ -246,6 +250,16 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 # Select tag with ID reportedinstalls - 0 because report_html.select returns an array
                 table = html_programs.select("#reportedinstalls")[0]
                 table.append(row)
+
+            # For statistics
+            # Count event types
+            event_name = artifact.getAttribute(att_event_name).getValueString()
+            # If Event is already in dictionary, add 1
+            if event_dictionary.get(event_name):
+                event_dictionary[event_name] += 1
+            # If it's not, add it to dictionary and start with 1
+            else:
+                event_dictionary[event_name] = 1
 
         # Add number of artifacts to table info panel
         # Need to turn one of the ints into float so the division works
@@ -305,8 +319,10 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # With this, we basically join the occurences counter
             ip_address = art_logged_ip.getAttribute(att_ip_address).getValueString()
             ip_counter = int(art_logged_ip.getAttribute(att_ip_counter).getValueString())
+            # If IP is already in dictionary, add the counter
             if ip_dictionary.get(ip_address):
                 ip_dictionary[ip_address] += ip_counter
+            # If it's not, add it to dictionary and start with counter
             else:
                 ip_dictionary[ip_address] = ip_counter
 
@@ -349,20 +365,28 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             
             # Generate statistics charts
             xls_ws_statistics = report_xls_wb.add_worksheet()
+            xls_ws_statistics_data = report_xls_wb.add_worksheet()
             chart_ips = report_xls_wb.add_chart({'type': 'column'})
             chart_ips_top20 = report_xls_wb.add_chart({'type': 'column'})
+            chart_event_name = report_xls_wb.add_chart({'type': 'bar'})
 
             # Change title
             chart_ips_top20.set_x_axis({
                 'name': 'Top 20 IP address occurences',
                 'name_font': {'size': 14, 'bold': True},
-                'num_font':  {'italic': True },
+                'num_font':  {'italic': True }
             })
 
             chart_ips.set_x_axis({
                 'name': 'Rest of IP address occurences',
                 'name_font': {'size': 14, 'bold': True},
-                'num_font':  {'size': 8, 'italic': True },
+                'num_font':  {'size': 8, 'italic': True }
+            })
+
+            chart_event_name.set_x_axis({
+                'name': 'Event name occurences',
+                'name_font': {'size': 14, 'bold': True},
+                'num_font':  {'size': 8, 'italic': True }
             })
 
             # Row counter
@@ -370,41 +394,51 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # An array with two arrays inside
             # First array will contain IPs (Categories)
             # Second will contain the IP's counter (Values)
-            data = [[], []]
+            ip_data = [[], []]
+            event_data = [[], []]
 
             # Iterate over IP dictionary, sorted by ascending counter
             for (ip,counter) in sorted(ip_dictionary.iteritems(), key = lambda (k,v): (v,k)):
-                data[0].append(ip)
-                data[1].append(counter)
+                ip_data[0].append(ip)
+                ip_data[1].append(counter)
+
+            # Iterate over Event dictionary, sorted by ascending counter
+            for (event,counter) in sorted(event_dictionary.iteritems(), key = lambda (k,v): (v,k)):
+                event_data[0].append(event)
+                event_data[1].append(counter)
+
+            ip_dict_len = len(ip_dictionary)
+            event_dict_len = len(event_dictionary)
 
             # Write values in two seperate columns
-            xls_ws_statistics.write_column('A1', data[0])
-            xls_ws_statistics.write_column('B1', data[1])
+            xls_ws_statistics_data.write_column(0, 0, ip_data[0])
+            xls_ws_statistics_data.write_column(0, 1, ip_data[1])
+
+            xls_ws_statistics_data.write_column(0, 2, event_data[0])
+            xls_ws_statistics_data.write_column(0, 3, event_data[1])
 
             # Create series
-            ip_dict_len = len(ip_dictionary)
 
             # All data except top 20
             # Default chart width by height is 480 x 288
             # 480 is enough for 20 records
             # So, we're going to calculate how much width is necessary
             # For the total amount of IPs (except top 20) we have
-            graph_width = int(round(float((480*(ip_dict_len-20))/20)))
+            chart_ips_width = int(round(float((480*(ip_dict_len-20))/20)))
             chart_ips.add_series({
-                'categories': ['Sheet3', 0, 0, ip_dict_len-20, 0], # '=Sheet3!$A$1:$A$'+ip_dict_len-20,
-                'values':     ['Sheet3', 0, 1, ip_dict_len-20, 1], # '=Sheet3!$B$1:$B$'+ip_dict_len-20,
+                'categories': ['Sheet4', 0, 0, ip_dict_len-20, 0],
+                'values':     ['Sheet4', 0, 1, ip_dict_len-20, 1],
                 'gap': 100,
                 'data_labels': {'value': True}
-
             })
 
             # Also doubling height
-            chart_ips.set_size({'width': graph_width, 'height': 576})
+            chart_ips.set_size({'width': chart_ips_width, 'height': 576})
 
             # Only top 20
             chart_ips_top20.add_series({
-                'categories': ['Sheet3', ip_dict_len-20, 0, ip_dict_len, 0], #'=Sheet3!$A$' + (ip_dict_len-20) + ':$A$'+ip_dict_len,
-                'values':     ['Sheet3', ip_dict_len-20, 1, ip_dict_len, 1], #'=Sheet3!$B$' + (ip_dict_len-20) + ':$B$'+ip_dict_len,
+                'categories': ['Sheet4', ip_dict_len-20, 0, ip_dict_len, 0], #'=Sheet4!$A$' + (ip_dict_len-20) + ':$A$'+ip_dict_len,
+                'values':     ['Sheet4', ip_dict_len-20, 1, ip_dict_len, 1], #'=Sheet4!$B$' + (ip_dict_len-20) + ':$B$'+ip_dict_len,
                 'gap': 150,
                 'data_labels': {'value': True}
             })
@@ -413,9 +447,18 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # And since the other IP chart is so big, it should be fine
             chart_ips_top20.set_size({'width': 960})
 
-            xls_ws_statistics.insert_chart('C3', chart_ips_top20)
+            chart_event_name.add_series({
+                'categories': ['Sheet4', 0, 2, event_dict_len, 2], 
+                'values':     ['Sheet4', 0, 3, event_dict_len, 3],
+                'gap': 150,
+                'data_labels': {'value': True}
+            })
 
-            xls_ws_statistics.insert_chart('C20', chart_ips)
+            xls_ws_statistics.insert_chart('A1', chart_ips_top20)
+
+            xls_ws_statistics.insert_chart('A17', chart_ips)
+
+            xls_ws_statistics.insert_chart('Q1', chart_event_name)
 
             report_xls_wb.close()
             # Add the report to the Case, so it is shown in the tree
