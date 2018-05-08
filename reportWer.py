@@ -33,6 +33,7 @@ import os
 import bs4
 import xlsxwriter
 import codecs
+import inspect
 
 from math import ceil
 from java.lang import System
@@ -58,17 +59,15 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
     _logger = None
 
     def log(self, level, msg):
-        if _logger is None:
-            _logger = Logger.getLogger(self.moduleName)
-
-        self._logger.logp(level, self.__class__.__name__,
-                          inspect.stack()[1][3], msg)
+        if self._logger is None:
+            self._logger = Logger.getLogger(self.moduleName)
+        self._logger.logp(level, self.__class__.__name__, inspect.stack()[1][3], msg)
 
     def getName(self):
         return self.moduleName
 
     def getDescription(self):
-        return "Get information of reported programs vs. installed programs"
+        return "HTML and/or Excel report of the LFA ingest module information"
 
     def getRelativeFilePath(self):
         return "LFA_" + Case.getCurrentCase().getName() + ".html"
@@ -114,6 +113,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
     #   See: http://sleuthkit.org/autopsy/docs/api-docs/4.4/classorg_1_1sleuthkit_1_1autopsy_1_1report_1_1_report_progress_panel.html
     def generateReport(self, baseReportDir, progressBar):
 
+        self.log(Level.INFO, "Starting LFA report module")
         # Configure progress bar for 2 tasks
         progressBar.setIndeterminate(False)
         progressBar.start()
@@ -229,19 +229,19 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             # Check if the reported program was found
             if files_found:
-                is_installed_string = "Yes"
+                is_detected_string = "Yes"
             else:
-                is_installed_string = "No"         
+                is_detected_string = "No"         
 
             if generateXLS:
-                xls_ws_reported.write(xls_row_count,XLS_REPORTED_HEADER_COUNT-1, is_installed_string)
+                xls_ws_reported.write(xls_row_count,XLS_REPORTED_HEADER_COUNT-1, is_detected_string)
                 xls_row_count += 1
             
             if generateHTML:
-                is_installed_cell = html_programs.new_tag("td")
-                is_installed_cell.string = is_installed_string
+                is_detected_cell = html_programs.new_tag("td")
+                is_detected_cell.string = is_detected_string
                 # Append row to table
-                row.append(is_installed_cell)
+                row.append(is_detected_cell)
 
                 # Select tag with ID reportedinstalls - 0 because report_html.select returns an array
                 table = html_programs.select("#reportedinstalls")[0]
@@ -266,7 +266,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                                                 {'header': 'Time of report'},
                                                 {'header': 'Path to program'},
                                                 {'header': 'Dump files'},
-                                                {'header': 'Is installed'}
+                                                {'header': 'Is detected'}
                                             ]})
             xls_ws_reported.write(xls_row_count+1, 0, files_info_str)
 
@@ -301,7 +301,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 table.append(row)
 
             # For statistics
-            # IPs are seperated by file
+            # IPs are separated by file
             # With this, we basically join the occurences counter
             ip_address = art_logged_ip.getAttribute(att_ip_address).getValueString()
             ip_counter = int(art_logged_ip.getAttribute(att_ip_counter).getValueString())
@@ -350,20 +350,29 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Generate statistics charts
             xls_ws_statistics = report_xls_wb.add_worksheet()
             chart_ips = report_xls_wb.add_chart({'type': 'column'})
+            chart_ips_top20 = report_xls_wb.add_chart({'type': 'column'})
 
             # Change title
-            chart_ips.set_x_axis({
-                'name': 'IP address occurences',
+            chart_ips_top20.set_x_axis({
+                'name': 'Top 20 IP address occurences',
                 'name_font': {'size': 14, 'bold': True},
                 'num_font':  {'italic': True },
+            })
+
+            chart_ips.set_x_axis({
+                'name': 'Rest of IP address occurences',
+                'name_font': {'size': 14, 'bold': True},
+                'num_font':  {'size': 8, 'italic': True },
             })
 
             # Row counter
             xls_row_count = 0
             # An array with two arrays inside
+            # First array will contain IPs (Categories)
+            # Second will contain the IP's counter (Values)
             data = [[], []]
 
-            # Iterate over IP dictionary
+            # Iterate over IP dictionary, sorted by ascending counter
             for (ip,counter) in sorted(ip_dictionary.iteritems(), key = lambda (k,v): (v,k)):
                 data[0].append(ip)
                 data[1].append(counter)
@@ -373,14 +382,40 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             xls_ws_statistics.write_column('B1', data[1])
 
             # Create series
-            ip_dict_len = str(len(ip_dictionary))
+            ip_dict_len = len(ip_dictionary)
+
+            # All data except top 20
+            # Default chart width by height is 480 x 288
+            # 480 is enough for 20 records
+            # So, we're going to calculate how much width is necessary
+            # For the total amount of IPs (except top 20) we have
+            graph_width = int(round(float((480*(ip_dict_len-20))/20)))
             chart_ips.add_series({
-                'categories': '=Sheet3!$A$1:$A$'+ip_dict_len,
-                'values':     '=Sheet3!$B$1:$B$'+ip_dict_len,
-                'gap': 2
+                'categories': ['Sheet3', 0, 0, ip_dict_len-20, 0], # '=Sheet3!$A$1:$A$'+ip_dict_len-20,
+                'values':     ['Sheet3', 0, 1, ip_dict_len-20, 1], # '=Sheet3!$B$1:$B$'+ip_dict_len-20,
+                'gap': 100,
+                'data_labels': {'value': True}
+
             })
 
-            xls_ws_statistics.insert_chart('C3', chart_ips)
+            # Also doubling height
+            chart_ips.set_size({'width': graph_width, 'height': 576})
+
+            # Only top 20
+            chart_ips_top20.add_series({
+                'categories': ['Sheet3', ip_dict_len-20, 0, ip_dict_len, 0], #'=Sheet3!$A$' + (ip_dict_len-20) + ':$A$'+ip_dict_len,
+                'values':     ['Sheet3', ip_dict_len-20, 1, ip_dict_len, 1], #'=Sheet3!$B$' + (ip_dict_len-20) + ':$B$'+ip_dict_len,
+                'gap': 150,
+                'data_labels': {'value': True}
+            })
+
+            # Doubling width so data labels are readable
+            # And since the other IP chart is so big, it should be fine
+            chart_ips_top20.set_size({'width': 960})
+
+            xls_ws_statistics.insert_chart('C3', chart_ips_top20)
+
+            xls_ws_statistics.insert_chart('C20', chart_ips)
 
             report_xls_wb.close()
             # Add the report to the Case, so it is shown in the tree
@@ -414,7 +449,7 @@ class LFA_ConfigPanel(JPanel):
         descriptionLabel = JLabel(" LFA - Log Forensics for Autopsy")
         self.add(descriptionLabel)
 
-        self.cbGenerateExcel = JCheckBox("Generate Excel format report", actionPerformed=self.cbGenerateExcelActionPerformed)
+        self.cbGenerateExcel = JCheckBox("Generate Excel format report (sortable and with statistics)", actionPerformed=self.cbGenerateExcelActionPerformed)
         self.cbGenerateExcel.setSelected(True)
         self.add(self.cbGenerateExcel)
 
