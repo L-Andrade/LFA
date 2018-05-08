@@ -534,12 +534,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         self.att_ip_address, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(ip)))
 
                     # Add counter to artifact
-<<<<<<< HEAD
-                    ip_art.addAttribute(BlackboardAttribute(
-                        self.att_ip_counter, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, counter))
-=======
                     ip_art.addAttribute(BlackboardAttribute(self.att_ip_counter, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(counter)))
->>>>>>> 4ec84820bbd5071f4a275e39ea5cec206bbc1ef0
 
                     # Add file path to artifact
                     ip_art.addAttribute(BlackboardAttribute(

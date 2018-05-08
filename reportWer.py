@@ -33,7 +33,6 @@ import os
 import bs4
 import xlsxwriter
 import codecs
-import chardet
 
 from math import ceil
 from java.lang import System
@@ -188,7 +187,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         # Second additional step here
         progressBar.increment()
-        progressBar.updateStatusLabel("Going through artifacts now...")
+        progressBar.updateStatusLabel("Going through Reported program artifacts now, takes longer than IPs...")
 
         # Get Attribute types
         att_reported_app_path = skCase.getAttributeType("TSK_LFA_APP_PATH")
@@ -292,6 +291,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         #                 __/ |  __/ |                              #
         #                |___/  |___/                               #
         #############################################################
+
+        progressBar.updateStatusLabel("Going through IP artifacts now...")
 
         # Reset counters
         art_count = 0
