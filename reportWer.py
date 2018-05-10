@@ -212,6 +212,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         # Statistics variables
         event_dictionary = {}
+        programs_detected = 0
 
         # Create a table row for each attribute
         for artifact in art_list_reported_progs:
@@ -233,7 +234,11 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             files_found = file_manager.findFiles(data_source, reported_app_path)
 
             # Check if the reported program was found
-            is_detected_string = "Yes" if files_found else "No"
+            if files_found:
+                is_detected_string = "Yes"
+                programs_detected += 1
+            else:
+                is_detected_string = "No"
 
             # Write to report
             if generateXLS:
@@ -337,7 +342,16 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                                                 {'header': 'Occurences'},
                                                 {'header': 'Log path'}
                                             ]})
-        
+
+        #########################################################################
+        #   _____                                _____  _          _            #
+        #  / ____|                      ___     / ____|| |        | |           #
+        # | (___    __ _ __   __ ___   ( _ )   | (___  | |_  __ _ | |_  ___     #
+        #  \___ \  / _` |\ \ / // _ \  / _ \/\  \___ \ | __|/ _` || __|/ __|    #
+        #  ____) || (_| | \ V /|  __/ | (_>  <  ____) || |_| (_| || |_ \__ \    #
+        # |_____/  \__,_|  \_/  \___|  \___/\/ |_____/  \__|\__,_| \__||___/    #
+        #########################################################################                                                                
+
         # Third additional step before saving
         progressBar.increment()
         progressBar.updateStatusLabel("Saving reports...")
@@ -360,7 +374,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             Case.getCurrentCase().addReport(html_file_name, self.moduleName, "LFA HTML Report")
 
         if generateXLS:
-            progressBar.updateStatusLabel("Generating Excel statistics...")
+            progressBar.updateStatusLabel("Generating statistics for Excel...")
             
             # Generate statistics charts
             xls_ws_statistics = report_xls_wb.add_worksheet()
@@ -368,8 +382,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             chart_ips = report_xls_wb.add_chart({'type': 'column'})
             chart_ips_top20 = report_xls_wb.add_chart({'type': 'column'})
             chart_event_name = report_xls_wb.add_chart({'type': 'bar'})
+            chart_is_detected = report_xls_wb.add_chart({'type': 'pie'})
 
-            # Change title
+            # Change titles
             chart_ips_top20.set_x_axis({
                 'name': 'Top 20 IP address occurences',
                 'name_font': {'size': 14, 'bold': True},
@@ -388,6 +403,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 'num_font':  {'size': 8, 'italic': True }
             })
 
+            chart_is_detected.set_title({'name': 'Programs detected in datasource'})
+
             # Row counter
             xls_row_count = 0
             # An array with two arrays inside
@@ -395,6 +412,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Second will contain the IP's counter (Values)
             ip_data = [[], []]
             event_data = [[], []]
+            is_detected_data = [['Yes', 'No'], [programs_detected, len(art_list_reported_progs)-programs_detected]]
 
             # Iterate over IP dictionary, sorted by ascending counter
             for (ip,counter) in sorted(ip_dictionary.iteritems(), key = lambda (k,v): (v,k)):
@@ -415,6 +433,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             xls_ws_statistics_data.write_column(0, 2, event_data[0])
             xls_ws_statistics_data.write_column(0, 3, event_data[1])
+
+            xls_ws_statistics_data.write_column(0, 4, is_detected_data[0])
+            xls_ws_statistics_data.write_column(0, 5, is_detected_data[1])
 
             # Create series
 
@@ -453,11 +474,19 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 'data_labels': {'value': True}
             })
 
+            chart_is_detected.add_series({
+                # 'name': '',
+                'categories': ['Sheet4', 0, 4, 1, 4],
+                'values':     ['Sheet4', 0, 5, 1, 5]
+            })
+
             xls_ws_statistics.insert_chart('A1', chart_ips_top20)
 
             xls_ws_statistics.insert_chart('A17', chart_ips)
 
             xls_ws_statistics.insert_chart('Q1', chart_event_name)
+
+            xls_ws_statistics.insert_chart('A48', chart_is_detected)
 
             report_xls_wb.close()
             # Add the report to the Case, so it is shown in the tree
