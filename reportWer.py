@@ -128,7 +128,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         # Get artifact lists
         art_list_reported_progs = skCase.getBlackboardArtifacts("TSK_LFA_REPORTED_PROGRAMS")
-        art_list_installed_progs = skCase.getBlackboardArtifacts("TSK_INSTALLED_PROG")
         art_list_logged_ips = skCase.getBlackboardArtifacts("TSK_LFA_LOG_FILE_IP")
 
         total_artifact_count = len(art_list_reported_progs) + len(art_list_logged_ips)
