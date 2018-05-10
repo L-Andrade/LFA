@@ -119,8 +119,12 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         progressBar.start()
         progressBar.updateStatusLabel("Getting files and counting")
 
-        # Get file counts
         skCase = Case.getCurrentCase().getSleuthkitCase()
+
+        services = Services(skCase)
+        file_manager = services.getFileManager()
+
+        # Get file counts
         files_wer = skCase.findAllFilesWhere("name like '%.wer'")
         files_wer_count = len(files_wer)
         files_log = skCase.findAllFilesWhere("name like '%.log'")
@@ -217,25 +221,21 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Not required for Excel because it can be done with coordinates
             row = self.write_artifact_to_report(progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_programs, xls_ws_reported)
             
-            # Search through installed programs...
             # Get reported app name
             reported_app_path = artifact.getAttribute(att_reported_app_path).getValueString()
             # Take drive off path (ex: C:\)
             reported_app_path = reported_app_path[3:]
-            # Invert slashes
+            # Invert slashes and take of space-like characters
             reported_app_path = reported_app_path.replace('\\', '/').encode('utf-8').split('/')[-1].replace('\r','').replace('\t','').replace('\n','')
 
+            # Search for the AppPath, found in the .wer, in the datasource
             data_source = artifact.getDataSource()
-            services = Services(skCase)
-            file_manager = services.getFileManager()
             files_found = file_manager.findFiles(data_source, reported_app_path)
 
             # Check if the reported program was found
-            if files_found:
-                is_detected_string = "Yes"
-            else:
-                is_detected_string = "No"         
+            is_detected_string = "Yes" if files_found else "No"
 
+            # Write to report
             if generateXLS:
                 xls_ws_reported.write(xls_row_count,XLS_REPORTED_HEADER_COUNT-1, is_detected_string)
                 xls_row_count += 1
