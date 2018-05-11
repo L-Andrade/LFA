@@ -83,7 +83,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
     def getRelativeFilePathXLS(self):
         return "LFA_" + Case.getCurrentCase().getName() + ".xlsx"
 
-    def write_artifact_to_report(self, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_file, xls_ws, dfxml):
+    def write_artifact_to_report(self, skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_file, xls_ws, dfxml):
         row = None
         # Create row
         if generateHTML:
@@ -95,7 +95,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         if generateDFXML:
             dfxml_src = dfxml.generateSource(artifact.getDataSource().getName())
 
-            source_file = self.skCase.getAbstractFileById(artifact.getObjectID())
+            source_file = skCase.getAbstractFileById(artifact.getObjectID())
             vol = dfxml.generateVolume('512')
             filename, file_extension = os.path.splitext(source_file.getName())
 
@@ -189,6 +189,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         html_ips = None
         xls_ws_reported = None
         xls_ws_logged_ips = None
+        dfxml = None
 
         # Init reports
         if generateHTML:
@@ -259,7 +260,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Function returns an HTML row in case we're doing a HTML report
             # So that we can add more info to that row reference if required
             # Not required for Excel because it can be done with coordinates
-            row = self.write_artifact_to_report(progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_programs, xls_ws_reported, dfxml)
+            row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_programs, xls_ws_reported, dfxml)
             
             # Get reported app name
             reported_app_path = artifact.getAttribute(att_reported_app_path).getValueString()
@@ -349,7 +350,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         for art_logged_ip in art_list_logged_ips:
             art_count += 1
-            row = self.write_artifact_to_report(progressBar, art_count, generateHTML, generateXLS, generateDFXML, art_logged_ip, xls_row_count, html_ips, xls_ws_logged_ips, dfxml)
+            row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, art_logged_ip, xls_row_count, html_ips, xls_ws_logged_ips, dfxml)
             
             if generateXLS:
                 xls_row_count += 1
