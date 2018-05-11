@@ -10,6 +10,7 @@ import platform
 import time
 
 import xml.etree.ElementTree as ET
+import xml.dom.minidom as minidom
 
 
 class DFXMLWriter:
@@ -18,8 +19,14 @@ class DFXMLWriter:
     receives metadata_desc which is the description of what info this file will contain
     '''
 
+    def prettify(self,elem):
+        """Return a pretty-printed XML string for the Element.
+        """
+        rough_string = ET.tostring(elem, 'utf-8')
+        reparsed = minidom.parseString(rough_string)
+        return reparsed.toprettyxml(indent="\t")
+
     def __init__(self, metadata_desc):
-        metadata_desc = self.__cleanInput(metadata_desc)
         # time intialization for timestamping purposes
         self.t0 = time.time()
         self.tlast = time.time()
@@ -37,7 +44,6 @@ class DFXMLWriter:
     '''
 
     def generateSource(self, image_filename):
-        image_filename = self.__cleanInput(image_filename)
         exSrc=self.dfxml.find('source')
         if (exSrc is not None):
             if(image_filename not in exSrc.findtext('image_filename')):
@@ -74,7 +80,7 @@ class DFXMLWriter:
     '''
 
     def generateVolume(self, offset):
-        offset = self.__cleanInput(offset)        
+        
         for vol in self.dfxml.findall('volume'):
             if(vol.get('offset') == offset):
                 return vol
@@ -117,8 +123,6 @@ class DFXMLWriter:
     def newFileObject(self, params_dict, parent):
         fileO = ET.SubElement(parent, 'fileobject')
         for name, val in params_dict.iteritems():
-            name = self.__cleanInput(name)
-            val = self.__cleanInput(val)
             ET.SubElement(fileO, name).text = val
         return fileO
 
@@ -138,7 +142,6 @@ class DFXMLWriter:
     '''
 
     def timestamp(self, name):
-        name = self.__cleanInput(name)
         now = time.time()
         ET.SubElement(self.dfxml, 'timestamp', {'name': name,
                                                 'delta': str(now - self.tlast),
@@ -154,7 +157,7 @@ class DFXMLWriter:
 
     # helper function, should not be called directly
     def asString(self):
-        return ET.tostring(self.dfxml).decode('utf-8')
+        return self.prettify(self.dfxml)
 
     # helper function, should not be called directly
     def write(self, f):
