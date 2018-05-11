@@ -66,6 +66,10 @@ class DFXMLWriter:
     '''
 
     def generateVolume(self, offset):
+        
+        for vol in self.dfxml.findall('volume'):
+            if(vol.get('offset') == offset):
+                return vol
         return ET.SubElement(self.dfxml, 'volume', {'offset': offset})
 
     '''
