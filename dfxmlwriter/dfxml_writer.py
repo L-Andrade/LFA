@@ -56,7 +56,6 @@ class DFXMLWriter:
     '''
 
     def addParamsToNode(self, node, name, val, attribute=None):
-        node = self.__cleanInput(node) 
         name = self.__cleanInput(name) 
         val = self.__cleanInput(val) 
         attribute = self.__cleanInput(attribute) 
