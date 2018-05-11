@@ -19,6 +19,7 @@ class DFXMLWriter:
     '''
 
     def __init__(self, metadata_desc):
+        metadata_desc = self.__cleanInput(metadata_desc)
         # time intialization for timestamping purposes
         self.t0 = time.time()
         self.tlast = time.time()
@@ -36,6 +37,7 @@ class DFXMLWriter:
     '''
 
     def generateSource(self, image_filename):
+        image_filename = self.__cleanInput(image_filename)
         exSrc=self.dfxml.find('source')
         if (exSrc is not None):
             if(image_filename not in exSrc.findtext('image_filename')):
@@ -72,7 +74,7 @@ class DFXMLWriter:
     '''
 
     def generateVolume(self, offset):
-        
+        offset = self.__cleanInput(offset)        
         for vol in self.dfxml.findall('volume'):
             if(vol.get('offset') == offset):
                 return vol
@@ -115,6 +117,8 @@ class DFXMLWriter:
     def newFileObject(self, params_dict, parent):
         fileO = ET.SubElement(parent, 'fileobject')
         for name, val in params_dict.iteritems():
+            name = self.__cleanInput(name)
+            val = self.__cleanInput(val)
             ET.SubElement(fileO, name).text = val
         return fileO
 
@@ -134,6 +138,7 @@ class DFXMLWriter:
     '''
 
     def timestamp(self, name):
+        name = self.__cleanInput(name)
         now = time.time()
         ET.SubElement(self.dfxml, 'timestamp', {'name': name,
                                                 'delta': str(now - self.tlast),
