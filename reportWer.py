@@ -153,7 +153,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         progressBar.updateStatusLabel("Getting files and counting")
 
         skCase = Case.getCurrentCase().getSleuthkitCase()
-        self.skCase = skCase
         services = Services(skCase)
         file_manager = services.getFileManager()
 
