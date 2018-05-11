@@ -268,12 +268,12 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # Add number of artifacts to table info panel
         # Need to turn one of the ints into float so the division works
         percentage = round((float(art_count)/files_wer_count)*100,2) if files_wer_count != 0 else 0
-        files_info_str = str(art_count) + " artifacts out of " + str(files_wer_count) + " files ("+ str(percentage) + "%)"
+        reported_info_str = str(art_count) + " artifacts out of " + str(files_wer_count) + " files ("+ str(percentage) + "%)"
 
         if generateHTML:
             # Select tag '<p>' with ID tableinfo - 0 because report_html.select returns an array
             info = html_programs.select("p#tableinfo")[0]
-            info.string = files_info_str
+            info.string = reported_info_str
 
         if generateXLS:
             # Start table at cell 0,0 and finish at row counter-1 (because it was incremented) and 5 (amount of headers - 1)
@@ -286,7 +286,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                                                 {'header': 'Dump files'},
                                                 {'header': 'Is detected'}
                                             ]})
-            xls_ws_reported.write(xls_row_count+1, 0, files_info_str)
+            xls_ws_reported.write(xls_row_count+1, 0, reported_info_str)
 
         #############################################################
         #  _                                     _   _____  _____   #
@@ -331,17 +331,23 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 ip_dictionary[ip_address] = ip_counter
 
         # Add final info to IP reports
+        ips_info_str = str(len(art_list_logged_ips)) + " artifacts out of " + str(files_log_count) + " .log files and " + str(len(ip_dictionary)) + " unique IPs."
+
         if generateHTML:
-            pass
+            # Select tag '<p>' with ID tableinfo - 0 because report_html.select returns an array
+            info = html_ips.select("p#tableinfo")[0]
+            info.string = reported_info_str
 
         if generateXLS:
             # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
-            xls_ws_logged_ips.add_table(0,0,xls_row_count,XLS_IPS_HEADER_COUNT-1, 
+            xls_ws_logged_ips.add_table(0,0,xls_row_count-1,XLS_IPS_HEADER_COUNT-1, 
                                             {'columns':[
                                                 {'header': 'IP Address'},
                                                 {'header': 'Occurences'},
                                                 {'header': 'Log path'}
                                             ]})
+
+            xls_ws_logged_ips.write(xls_row_count+1, 0, ips_info_str)
 
         #########################################################################
         #   _____                                _____  _          _            #
@@ -479,14 +485,16 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 'categories': ['Sheet4', 0, 4, 1, 4],
                 'values':     ['Sheet4', 0, 5, 1, 5]
             })
+            xls_ws_statistics.write(0, 0, reported_info_str)
+            xls_ws_statistics.write(1, 0, ips_info_str)
 
-            xls_ws_statistics.insert_chart('A1', chart_ips_top20)
+            xls_ws_statistics.insert_chart('A3', chart_ips_top20)
 
-            xls_ws_statistics.insert_chart('A17', chart_ips)
+            xls_ws_statistics.insert_chart('A20', chart_ips)
 
-            xls_ws_statistics.insert_chart('Q1', chart_event_name)
+            xls_ws_statistics.insert_chart('Q3', chart_event_name)
 
-            xls_ws_statistics.insert_chart('A48', chart_is_detected)
+            xls_ws_statistics.insert_chart('A50', chart_is_detected)
 
             report_xls_wb.close()
             # Add the report to the Case, so it is shown in the tree

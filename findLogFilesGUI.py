@@ -335,11 +335,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             skCase = Case.getCurrentCase().getSleuthkitCase()
             artifact_list = skCase.getBlackboardArtifacts(
                 self.art_log_file.getTypeID())
-
+            file_path = file.getDataSource().getName() + file.getParentPath() + file.getName()
             for artifact in artifact_list:
                 # Check if file is already an artifact
                 # If the files have the same name and parent path (this path already has the datasource), file is repeated
-                if artifact.getAttribute(self.att_case_file_path) != None and artifact.getAttribute(self.att_case_file_path).getValueString() == file.getParentPath() + file.getName():
+                if artifact.getAttribute(self.att_case_file_path) != None and artifact.getAttribute(self.att_case_file_path).getValueString() == file_path:
                     self.log(Level.INFO, "File is already in artifact list")
                     return IngestModule.ProcessResult.OK
 
@@ -382,7 +382,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
             # Register case file path
             art.addAttribute(BlackboardAttribute(
-                self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
+                self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file_path))
 
             # Add the file log artifact
             try:
@@ -432,7 +432,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 reported_art = file.newArtifact(
                     self.art_reported_program.getTypeID())
                 self.log(
-                    Level.INFO, "Created new artifac of type art_reported_program for file of id " + str(file.getId()))
+                    Level.INFO, "Created new artifact of type art_reported_program for file of id " + str(file.getId()))
 
                 # Add normal attributes to artifact
                 reported_art.addAttribute(BlackboardAttribute(
