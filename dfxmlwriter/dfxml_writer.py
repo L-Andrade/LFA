@@ -58,8 +58,9 @@ class DFXMLWriter:
     def addParamsToNode(self, node, name, val, attribute=None):
         name = self.__cleanInput(name) 
         val = self.__cleanInput(val) 
-        attribute = self.__cleanInput(attribute) 
         if attribute:
+            attribute[0] = self.__cleanInput(attribute[0])
+            attribute[1] = self.__cleanInput(attribute[1]) 
             newNode = ET.SubElement(
                 node, name, {attribute[0]: attribute[1]}).text = val  # only works with one attribute for now, modify if more is needed
         else:
