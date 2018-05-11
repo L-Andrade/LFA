@@ -130,8 +130,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 xls_col_count += 1
 
             if generateDFXML:
-                # att = [attribute.getDisplayString(), attribute_value]
-                dfxml.addParamsToNode(dfxml_src, attribute.getAttributeTypeDisplayName(), attribute_value)
+                att = ['type', attribute.getAttributeTypeDisplayName()]
+                dfxml.addParamsToNode(fo, 'attribute', attribute_value, att)
 
                 
 
@@ -337,7 +337,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         #                 __/ |  __/ |                              #
         #                |___/  |___/                               #
         #############################################################
-
+        
         progressBar.updateStatusLabel("Going through IP artifacts now...")
 
         # Reset counters
@@ -387,7 +387,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                                             ]})
 
             xls_ws_logged_ips.write(xls_row_count+1, 0, ips_info_str)
-
+        
         #########################################################################
         #   _____                                _____  _          _            #
         #  / ____|                      ___     / ____|| |        | |           #
