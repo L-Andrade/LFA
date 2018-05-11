@@ -30,10 +30,11 @@
 # See http://sleuthkit.org/autopsy/docs/api-docs/4.4/index.html for documentation
 
 import os
+import inspect
 import bs4
 import xlsxwriter
-import codecs
-import inspect
+
+from dfxmlwriter import dfxml_writer
 
 from math import ceil
 from java.lang import System
@@ -43,6 +44,7 @@ from org.sleuthkit.autopsy.casemodule.services import Services
 from org.sleuthkit.autopsy.coreutils import Logger
 from org.sleuthkit.autopsy.report import GeneralReportModuleAdapter
 from org.sleuthkit.autopsy.report.ReportProgressPanel import ReportStatus
+from org.sleuthkit.datamodel import AbstractFile
 
 from javax.swing import JPanel
 from javax.swing import JCheckBox
@@ -67,18 +69,21 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         return self.moduleName
 
     def getDescription(self):
-        return "HTML and/or Excel report of the LFA ingest module information"
+        return "Report of LFA ingest module information enhanced"
 
     def getRelativeFilePath(self):
         return "LFA_" + Case.getCurrentCase().getName() + ".html"
 
-    def getRelativeFilePathIPs(self):
+    def getRelativeFilePathIPsHTML(self):
         return "LFA_IPs" + Case.getCurrentCase().getName() + ".html"
+
+    def getRelativeFilePathDFXML(self):
+        return "LFA_" + Case.getCurrentCase().getName() + ".xml"
 
     def getRelativeFilePathXLS(self):
         return "LFA_" + Case.getCurrentCase().getName() + ".xlsx"
 
-    def write_artifact_to_report(self, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_file, xls_ws):
+    def write_artifact_to_report(self, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_file, xls_ws, dfxml):
         row = None
         # Create row
         if generateHTML:
@@ -87,20 +92,48 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         if generateXLS:
             xls_col_count = 0
 
+        if generateDFXML:
+            dfxml_src = dfxml.generateSource(artifact.getDataSource().getName())
+
+            source_file = self.skCase.getAbstractFileById(artifact.getObjectID())
+            vol = dfxml.generateVolume('512')
+            filename, file_extension = os.path.splitext(source_file.getName())
+
+            fo = dfxml.newFileObject({
+                'filename': filename+file_extension,
+                'filesize': str(source_file.getSize()),
+                'ext': file_extension,
+                'ctime': str(source_file.getCtime()),
+                'atime': str(source_file.getAtime()),
+                'crtime': str(source_file.getCrtime()),
+                'mtime': str(source_file.getMtime()),
+
+            }, vol)
+            md5 = source_file.getMd5Hash() 
+            if md5 is not None:
+                dfxml.addHashDigestToFO(fo, ['MD5',md5])
+
         # Get artifact's attributes
         attributes = artifact.getAttributes()
         for attribute in attributes:
+            attribute_value = attribute.getValueString()
             # Create a cell and add attribute value as content
             if generateHTML:
                 cell = html_file.new_tag("td")
-                cell.string = attribute.getValueString()
+                cell.string = attribute_value
 
                 # Append cell to the row
                 row.append(cell)
 
             if generateXLS:
-                xls_ws.write(xls_row_count, xls_col_count, attribute.getValueString())
+                xls_ws.write(xls_row_count, xls_col_count, attribute_value)
                 xls_col_count += 1
+
+            if generateDFXML:
+                # att = [attribute.getDisplayString(), attribute_value]
+                dfxml.addParamsToNode(dfxml_src, attribute.getAttributeTypeDisplayName(), attribute_value)
+
+                
 
         # Update progress bar every 10 artifacts
         if art_count % 10 == 0:
@@ -112,15 +145,15 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
     # The 'progressBar' object is of type ReportProgressPanel.
     #   See: http://sleuthkit.org/autopsy/docs/api-docs/4.4/classorg_1_1sleuthkit_1_1autopsy_1_1report_1_1_report_progress_panel.html
     def generateReport(self, baseReportDir, progressBar):
-
         self.log(Level.INFO, "Starting LFA report module")
+
         # Configure progress bar for 2 tasks
         progressBar.setIndeterminate(False)
         progressBar.start()
         progressBar.updateStatusLabel("Getting files and counting")
 
         skCase = Case.getCurrentCase().getSleuthkitCase()
-
+        self.skCase = skCase
         services = Services(skCase)
         file_manager = services.getFileManager()
 
@@ -146,6 +179,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # Get what reports the user wants
         generateHTML = self.configPanel.getGenerateHTML()
         generateXLS = self.configPanel.getGenerateXLS()
+        generateDFXML = self.configPanel.getGenerateDFXML()
 
         # First additional step here
         progressBar.increment()
@@ -153,12 +187,14 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         html_programs = None
         html_ips = None
+        xls_ws_reported = None
+        xls_ws_logged_ips = None
 
         # Init reports
         if generateHTML:
             # Get html_file_name
             html_file_name = os.path.join(baseReportDir, self.getRelativeFilePath())
-            html_file_name_ips = os.path.join(baseReportDir, self.getRelativeFilePathIPs())
+            html_file_name_ips = os.path.join(baseReportDir, self.getRelativeFilePathIPsHTML())
             # Get template path
             template_name_programs = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_programs.html")
             template_name_ips = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_ips.html")
@@ -182,6 +218,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             xls_ws_reported = report_xls_wb.add_worksheet()
             xls_ws_logged_ips = report_xls_wb.add_worksheet()
 
+        if generateDFXML:
+            dfxml_path = os.path.join(baseReportDir, self.getRelativeFilePathDFXML())
+            dfxml = dfxml_writer.DFXMLWriter(self.getDescription())
         # Create counter to operate Excel
         # Start row at 1 because of headers
         xls_row_count = 1
@@ -220,7 +259,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Function returns an HTML row in case we're doing a HTML report
             # So that we can add more info to that row reference if required
             # Not required for Excel because it can be done with coordinates
-            row = self.write_artifact_to_report(progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_programs, xls_ws_reported)
+            row = self.write_artifact_to_report(progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_programs, xls_ws_reported, dfxml)
             
             # Get reported app name
             reported_app_path = artifact.getAttribute(att_reported_app_path).getValueString()
@@ -310,7 +349,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         for art_logged_ip in art_list_logged_ips:
             art_count += 1
-            row = self.write_artifact_to_report(progressBar, art_count, generateHTML, generateXLS, art_logged_ip, xls_row_count, html_ips, xls_ws_logged_ips)
+            row = self.write_artifact_to_report(progressBar, art_count, generateHTML, generateXLS, generateDFXML, art_logged_ip, xls_row_count, html_ips, xls_ws_logged_ips, dfxml)
             
             if generateXLS:
                 xls_row_count += 1
@@ -365,7 +404,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         if generateHTML:
             # Edit href to link each HTML page
             ip_link = html_programs.select('#loggedipslink')[0]
-            ip_link['href'] = self.getRelativeFilePathIPs()
+            ip_link['href'] = self.getRelativeFilePathIPsHTML()
 
             program_link = html_ips.select('#programslink')[0]
             program_link['href'] = self.getRelativeFilePath()
@@ -378,6 +417,12 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             # Add the report to the Case, so it is shown in the tree
             Case.getCurrentCase().addReport(html_file_name, self.moduleName, "LFA HTML Report")
+
+        if generateDFXML:
+            dfxml.writeToFile(dfxml_path)
+
+            # Add the report to the Case, so it is shown in the tree
+            Case.getCurrentCase().addReport(dfxml_path, self.moduleName, "LFA DFXML Report")
 
         if generateXLS:
             progressBar.updateStatusLabel("Generating statistics for Excel...")
@@ -510,8 +555,10 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 class LFA_ConfigPanel(JPanel):
     generateXLS = True
     generateHTML = True
+    generateDFXML = True
     cbGenerateExcel = None
     cbGenerateCSV = None
+    cbGenerateDFXML = None
 
     def __init__(self):
         self.initComponents()
@@ -521,6 +568,9 @@ class LFA_ConfigPanel(JPanel):
 
     def getGenerateXLS(self):
         return self.generateXLS
+
+    def getGenerateDFXML(self):
+        return self.generateDFXML
 
     def initComponents(self):
         self.setLayout(BoxLayout(self, BoxLayout.Y_AXIS))
@@ -536,8 +586,15 @@ class LFA_ConfigPanel(JPanel):
         self.cbGenerateHTML.setSelected(True)
         self.add(self.cbGenerateHTML)
 
+        self.cbGenerateDFXML = JCheckBox("Generate DFXML format report", actionPerformed=self.cbGenerateDFXMLActionPerformed)
+        self.cbGenerateDFXML.setSelected(True)
+        self.add(self.cbGenerateDFXML)
+
     def cbGenerateExcelActionPerformed(self, event):
         self.generateXLS = event.getSource().isSelected()
 
     def cbGenerateHTMLActionPerformed(self, event):
         self.generateHTML = event.getSource().isSelected()
+
+    def cbGenerateDFXMLActionPerformed(self, event):
+        self.generateDFXML = event.getSource().isSelected()

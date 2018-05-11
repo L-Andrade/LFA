@@ -34,7 +34,6 @@
 # for user options.  This is not needed for very basic modules. If you
 # don't need a configuration UI, start with the other sample module.
 #
-# Search for TODO for the things that you need to change
 # See http://sleuthkit.org/autopsy/docs/api-docs/4.4/index.html for documentation
 
 
@@ -128,7 +127,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUIFactory(IngestModuleFactoryAda
 
 
 # File-level ingest module.  One gets created per thread.
-# TODO: Rename this to something more specific. Could just remove "Factory" from above name.
 # Looks at the attributes of the passed in file.
 class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
@@ -144,7 +142,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.local_settings = settings
 
     # Where any setup and configuration is done
-    # TODO: Add any setup code that you need here.
     def startUp(self, context):
         # For statistics purposes
         self.filesFound = 0
@@ -312,7 +309,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         # raise IngestModuleException("Oh No!")
 
     # Where the analysis is done.  Each file will be passed into here.
-    # TODO: Add your analysis code in here.
     def process(self, file):
 
         # Skip non-files
@@ -567,9 +563,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
 # Stores the settings that can be changed for each ingest job
 # All fields in here must be serializable.  It will be written to disk.
-# TODO: Rename this class
-
-
 class LogForensicsForAutopsyFileIngestModuleWithUISettings(IngestModuleIngestJobSettings):
     serialVersionUID = 1L
 
@@ -610,9 +603,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettings(IngestModuleIngestJob
         self.checkEVTx = checkEVTx
 
 # UI that is shown to user for each ingest job so they can configure the job.
-# TODO: Rename this
-
-
 class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Note, we can't use a self.settings instance variable.
     # Rather, self.local_settings is used.
@@ -625,7 +615,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
 
     # We get passed in a previous version of the settings so that we can
     # prepopulate the UI
-    # TODO: Update this for your UI
     def __init__(self, settings):
         self.local_settings = settings
         self.initComponents()
@@ -651,7 +640,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.local_settings.setCheckEVTx(self.checkboxEVTx.isSelected())
         self.saveFlagSetting("checkEVTx", self.checkboxEVTx.isSelected())
 
-    # TODO: Update this for your UI
     def initComponents(self):
         self.setLayout(BoxLayout(self, BoxLayout.Y_AXIS))
 
@@ -679,7 +667,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.add(self.checkboxEVTx)
         self.add(self.errorMessageLabel)
 
-    # TODO: Update this for your UI
     def customizeComponents(self):
         self.checkDatabaseEntries()
 
