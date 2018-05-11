@@ -418,7 +418,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Second will contain the IP's counter (Values)
             ip_data = [[], []]
             event_data = [[], []]
-            is_detected_data = [['Yes', 'No'], [programs_detected, len(art_list_reported_progs)-programs_detected]]
+            is_detected_data = [['Detected', 'Not detected'], [programs_detected, len(art_list_reported_progs)-programs_detected]]
 
             # Iterate over IP dictionary, sorted by ascending counter
             for (ip,counter) in sorted(ip_dictionary.iteritems(), key = lambda (k,v): (v,k)):
