@@ -235,6 +235,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         att_ip_counter = skCase.getAttributeType("TSK_LFA_IP_COUNTER")
         att_ip_address = skCase.getAttributeType("TSK_LFA_IP_ADDRESS")
         att_event_name = skCase.getAttributeType("TSK_LFA_EVENT_NAME")
+        att_ip_log_path = skCase.getAttributeType("TSK_LFA_CASE_FILE_PATH")
 
         #########################################################
         #  _____                            _             _     #
@@ -346,6 +347,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         # Statistics variables
         ip_dictionary = {}
+        ip_file_dictionary = {}
 
         for art_logged_ip in art_list_logged_ips:
             art_count += 1
@@ -362,12 +364,18 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # With this, we basically join the occurences counter
             ip_address = art_logged_ip.getAttribute(att_ip_address).getValueString()
             ip_counter = int(art_logged_ip.getAttribute(att_ip_counter).getValueString())
+            ip_log_file = art_logged_ip.getAttribute(att_ip_log_path).getValueString()
             # If IP is already in dictionary, add the counter
             if ip_dictionary.get(ip_address):
                 ip_dictionary[ip_address] += ip_counter
             # If it's not, add it to dictionary and start with counter
             else:
                 ip_dictionary[ip_address] = ip_counter
+
+            if ip_file_dictionary.get(ip_address):
+                ip_file_dictionary[ip_address] += 1
+            else:
+                ip_file_dictionary[ip_address] = 1
 
         # Add final info to IP reports
         ips_info_str = str(len(art_list_logged_ips)) + " artifacts out of " + str(files_log_count) + " .log files and " + str(len(ip_dictionary)) + " unique IPs."
@@ -434,6 +442,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             chart_ips_top20 = report_xls_wb.add_chart({'type': 'column'})
             chart_event_name = report_xls_wb.add_chart({'type': 'bar'})
             chart_is_detected = report_xls_wb.add_chart({'type': 'pie'})
+            chart_ip_file_occur = report_xls_wb.add_chart({'type': 'column'})
 
             # Change titles
             chart_ips_top20.set_x_axis({
@@ -456,6 +465,12 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             chart_is_detected.set_title({'name': 'Programs detected in datasource'})
 
+            chart_ip_file_occur.set_x_axis({
+                'name': 'IP occurs in how many files',
+                'name_font': {'size': 14, 'bold': True},
+                'num_font':  {'size': 8, 'italic': True }
+            })
+
             # Row counter
             xls_row_count = 0
             # An array with two arrays inside
@@ -463,12 +478,18 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Second will contain the IP's counter (Values)
             ip_data = [[], []]
             event_data = [[], []]
+            ip_file_data = [[], []]
             is_detected_data = [['Detected', 'Not detected'], [programs_detected, len(art_list_reported_progs)-programs_detected]]
 
             # Iterate over IP dictionary, sorted by ascending counter
             for (ip,counter) in sorted(ip_dictionary.iteritems(), key = lambda (k,v): (v,k)):
                 ip_data[0].append(ip)
                 ip_data[1].append(counter)
+
+            # Iterate over IP dictionary, sorted by ascending counter
+            for (ip,ip_file_counter) in sorted(ip_file_dictionary.iteritems(), key = lambda (k,v): (v,k)):
+                ip_file_data[0].append(ip)
+                ip_file_data[1].append(ip_file_counter)
 
             # Iterate over Event dictionary, sorted by ascending counter
             for (event,counter) in sorted(event_dictionary.iteritems(), key = lambda (k,v): (v,k)):
@@ -477,6 +498,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             ip_dict_len = len(ip_dictionary)
             event_dict_len = len(event_dictionary)
+            ip_file_dict_len = len(ip_file_dictionary)
 
             # Write values in two seperate columns
             xls_ws_statistics_data.write_column(0, 0, ip_data[0])
@@ -487,6 +509,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             xls_ws_statistics_data.write_column(0, 4, is_detected_data[0])
             xls_ws_statistics_data.write_column(0, 5, is_detected_data[1])
+
+            xls_ws_statistics_data.write_column(0, 6, ip_file_data[0])
+            xls_ws_statistics_data.write_column(0, 7, ip_file_data[1])
 
             # Create series
 
@@ -530,7 +555,19 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 'categories': ['Sheet4', 0, 4, 1, 4],
                 'values':     ['Sheet4', 0, 5, 1, 5]
             })
+
+            # IP mentioned in 'x' files
+            chart_ip_file_width = int(round(float((480*(ip_file_dict_len))/20)))
+            chart_ip_file_occur.set_size({'width': chart_ip_file_width})
+            chart_ip_file_occur.add_series({
+                'categories': ['Sheet4', 0, 6, ip_file_dict_len, 6],
+                'values':     ['Sheet4', 0, 7, ip_file_dict_len, 7],
+                'gap': 150,
+                'data_labels': {'value': True}
+            })
+
             xls_ws_statistics.write(0, 0, reported_info_str)
+
             xls_ws_statistics.write(1, 0, ips_info_str)
 
             xls_ws_statistics.insert_chart('A3', chart_ips_top20)
@@ -540,6 +577,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             xls_ws_statistics.insert_chart('Q3', chart_event_name)
 
             xls_ws_statistics.insert_chart('A50', chart_is_detected)
+
+            xls_ws_statistics.insert_chart('J50', chart_ip_file_occur)
 
             report_xls_wb.close()
             # Add the report to the Case, so it is shown in the tree
