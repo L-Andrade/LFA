@@ -37,8 +37,6 @@ class DFXMLWriter:
         # documentation for this further in the class
         self.generateCreator()
 
-    def __cleanInput(self,input):
-        return input.replace('\n','').replace('\t','').replace('\r','')
     '''
     this function generates the 'source' sub-ele with the mandatory paramenter being the name of the data source
     '''
@@ -64,11 +62,7 @@ class DFXMLWriter:
     '''
 
     def addParamsToNode(self, node, name, val, attribute=None):
-        name = self.__cleanInput(name) 
-        val = self.__cleanInput(val) 
         if attribute:
-            attribute[0] = self.__cleanInput(attribute[0])
-            attribute[1] = self.__cleanInput(attribute[1]) 
             newNode = ET.SubElement(
                 node, name, {attribute[0]: attribute[1]}).text = val  # only works with one attribute for now, modify if more is needed
         else:

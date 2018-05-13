@@ -43,11 +43,11 @@ def extract_specific_key(pathToFile, key):
     try:
         for line in lines:
             sLines = line.split("=")
-            if(sLines[0] == key):
+            if sLines[0] == key:
                 return sLines[1]
-        return{'Error': 'key does not exist in file'}
+        return {'Error': 'key does not exist in file'}
     except:
-        return{'Error': 'unable to parse file'}
+        return {'Error': 'unable to parse file'}
 
 
 def find_dmp_files(pathToFile):
@@ -56,18 +56,22 @@ def find_dmp_files(pathToFile):
     try:
         for line in lines:
             sLines = line.split("=")
-            if(sLines[1].endswith(".dmp") and "\\" not in sLines[1] and sLines[1] not in  res):
+            if sLines[1].endswith(".dmp") and "\\" not in sLines[1] and sLines[1] not in  res:
                 res.append(sLines[1])
         return res
     except:
-        return{'Error': 'unable to parse file'}
+        return {'Error': 'unable to parse file'}
     
 
 def _read_file_lines(pathToFile):
     try:
         f = codecs.open(pathToFile, 'r', encoding='utf-16le')
         lines = f.readlines()
+        clean_lines = []
+        for line in lines:
+            clean_line = line.replace('\n','').replace('\t','').replace('\r','')
+            clean_lines.append(clean_line)
         f.close()
-        return lines
+        return clean_lines
     except IOError:
         return {'Error': 'unable to open file'}

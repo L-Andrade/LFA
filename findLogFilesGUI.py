@@ -458,7 +458,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 self.log(
                     Level.INFO, "Extracted dump files names from .wer file of id " + str(file.getId()))
 
-                if(not dmp or "Error" in dmp):
+                if not dmp or "Error" in dmp:
                     dmp = "None"
                 else:
                     dmp = ', '.join(dmp)

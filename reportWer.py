@@ -267,7 +267,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Take drive off path (ex: C:\)
             reported_app_path = reported_app_path[3:]
             # Invert slashes and take of space-like characters
-            reported_app_path = reported_app_path.replace('\\', '/').encode('utf-8').split('/')[-1].replace('\r','').replace('\t','').replace('\n','')
+            reported_app_path = reported_app_path.replace('\\', '/').encode('utf-8').split('/')[-1]
 
             # Search for the AppPath, found in the .wer, in the datasource
             data_source = artifact.getDataSource()
