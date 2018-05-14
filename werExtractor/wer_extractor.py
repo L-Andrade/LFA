@@ -12,6 +12,21 @@ EPOCH_AS_FILETIME = 116444736000000000  # January 1, 1970 as MS file time
 HUNDREDS_OF_NANOSECONDS = 10000000
 
 
+def is_file_wer(pathToFile):
+    try:
+            f = codecs.open(os.path.join(pathToFile),
+                            'r', encoding='utf-16le')
+            line_one = f.readline()
+            line_two = f.readline()
+            f.close()
+            if('Version=' in line_one or 'EventType=' in line_two):
+                return True
+    except:
+        return False
+    return False
+        
+
+
 def extract_default_keys(pathToFile):
     lines = _read_file_lines(pathToFile)
 
@@ -56,12 +71,12 @@ def find_dmp_files(pathToFile):
     try:
         for line in lines:
             sLines = line.split("=")
-            if sLines[1].endswith(".dmp") and "\\" not in sLines[1] and sLines[1] not in  res:
+            if sLines[1].endswith(".dmp") and "\\" not in sLines[1] and sLines[1] not in res:
                 res.append(sLines[1])
         return res
     except:
         return {'Error': 'unable to parse file'}
-    
+
 
 def _read_file_lines(pathToFile):
     try:
@@ -69,7 +84,8 @@ def _read_file_lines(pathToFile):
         lines = f.readlines()
         clean_lines = []
         for line in lines:
-            clean_line = line.replace('\n','').replace('\t','').replace('\r','')
+            clean_line = line.replace('\n', '').replace(
+                '\t', '').replace('\r', '')
             clean_lines.append(clean_line)
         f.close()
         return clean_lines

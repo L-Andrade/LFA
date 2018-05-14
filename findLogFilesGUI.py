@@ -322,7 +322,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
         # Is file of certain extension AND its checkbox is checked?
         if ((file.getName().lower().endswith(".etl") and self.local_settings.getCheckETL()) or
-            (file.getName().lower().endswith(".wer") and self.local_settings.getCheckWER()) or
+            ((file.getName().lower().endswith(".wer")) and self.local_settings.getCheckWER()) or
             (file.getName().lower().endswith(".dmp") and self.local_settings.getCheckDmp()) or
             (file.getName().lower().endswith(".evtx") and self.local_settings.getCheckEVTx()) or
                 (file.getName().lower().endswith(".log") and self.local_settings.getCheckLog())):
@@ -482,6 +482,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 IngestServices.getInstance().fireModuleDataEvent(
                     ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
                                     self.art_reported_program, None))
+                os.remove(self.temp_wer_path)
 
             #################################################
             #     _                  __  _  _               #
