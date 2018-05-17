@@ -26,7 +26,7 @@ class DFXMLWriter:
         reparsed = minidom.parseString(rough_string)
         return reparsed.toprettyxml(indent="\t")
 
-    def __init__(self, metadata_desc):
+    def __init__(self, metadata_desc,programName,programVersion):
         # time intialization for timestamping purposes
         self.t0 = time.time()
         self.tlast = time.time()
@@ -35,7 +35,7 @@ class DFXMLWriter:
         # creates metadata subEle
         ET.SubElement(self.dfxml, 'metadata').text = metadata_desc
         # documentation for this further in the class
-        self.generateCreator()
+        self.generateCreator(programName,programVersion)
 
     '''
     this function generates the 'source' sub-ele with the mandatory paramenter being the name of the data source
@@ -81,15 +81,15 @@ class DFXMLWriter:
         return ET.SubElement(self.dfxml, 'volume', {'offset': offset})
 
     '''
-    generates the Creator node, which contains information about the machine used to make the analysis
+    generates the Creator node, which contains information about the environment used to make the analysis
     '''
 
-    def generateCreator(self):
+    def generateCreator(self,programName,programVersion):
         creator = ET.SubElement(self.dfxml, 'creator')
 
-        ET.SubElement(creator, 'program').text = 'SleuthKit Autospy Module LFA'
+        ET.SubElement(creator, 'program').text = programName
         ET.SubElement(
-            creator, 'version').text = 'TODO: when used on module, put versions here'  # TODO
+            creator, 'version').text = programVersion
 
         # what was used to run the code
         be = ET.SubElement(creator, 'build_environment')
@@ -103,7 +103,7 @@ class DFXMLWriter:
                         'os_release', 'os_version', 'arch']
         for i in range(len(uname_fields)):
             ET.SubElement(ee, uname_fields[i]).text = uname[i]
-        # ET.SubElement(ee, 'uid').text = self.__getUid()
+        ET.SubElement(ee, 'uid').text = self.__getUid()
         ET.SubElement(ee, 'username').text = os.getenv('username')
         ET.SubElement(
             ee, 'start_time').text = datetime.datetime.now().isoformat()
@@ -180,7 +180,8 @@ class DFXMLWriter:
 
         elif os.name == 'posix':
             return os.getuid()
-
+        elif os.name == 'java':
+            return 'java'
         else:
             raise RuntimeError, "Unsupported operating system for this module: %s" % (
                 os.name,)

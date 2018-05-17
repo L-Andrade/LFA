@@ -42,6 +42,7 @@ from java.util.logging import Level
 from org.sleuthkit.autopsy.casemodule import Case
 from org.sleuthkit.autopsy.casemodule.services import Services
 from org.sleuthkit.autopsy.coreutils import Logger
+from org.sleuthkit.autopsy.coreutils import Version
 from org.sleuthkit.autopsy.report import GeneralReportModuleAdapter
 from org.sleuthkit.autopsy.report.ReportProgressPanel import ReportStatus
 from org.sleuthkit.datamodel import AbstractFile
@@ -220,7 +221,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         if generateDFXML:
             dfxml_path = os.path.join(baseReportDir, self.getRelativeFilePathDFXML())
-            dfxml = dfxml_writer.DFXMLWriter(self.getDescription())
+            dfxml = dfxml_writer.DFXMLWriter(self.getDescription(),Version.getName(), Version.getVersion())
         # Create counter to operate Excel
         # Start row at 1 because of headers
         xls_row_count = 1
