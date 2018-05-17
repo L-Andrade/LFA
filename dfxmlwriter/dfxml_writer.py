@@ -19,14 +19,14 @@ class DFXMLWriter:
     receives metadata_desc which is the description of what info this file will contain
     '''
 
-    def prettify(self,elem):
+    def prettify(self, elem):
         """Return a pretty-printed XML string for the Element.
         """
         rough_string = ET.tostring(elem, 'utf-8')
         reparsed = minidom.parseString(rough_string)
         return reparsed.toprettyxml(indent="\t")
 
-    def __init__(self, metadata_desc,programName,programVersion):
+    def __init__(self, metadata_desc, programName=None, programVersion=None):
         # time intialization for timestamping purposes
         self.t0 = time.time()
         self.tlast = time.time()
@@ -35,21 +35,36 @@ class DFXMLWriter:
         # creates metadata subEle
         ET.SubElement(self.dfxml, 'metadata').text = metadata_desc
         # documentation for this further in the class
-        self.generateCreator(programName,programVersion)
+        self.generateCreator(programName, programVersion)
 
     '''
     this function generates the 'source' sub-ele with the mandatory paramenter being the name of the data source
     '''
 
     def generateSource(self, image_filename):
-        exSrc=self.dfxml.find('source')
+        exSrc = self.dfxml.find('source')
         if (exSrc is not None):
             if(image_filename not in exSrc.findtext('image_filename')):
-                ET.SubElement(exSrc, 'image_filename').text = image_filename    
+                ET.SubElement(exSrc, 'image_filename').text = image_filename
             return exSrc
         src = ET.SubElement(self.dfxml, 'source')
         ET.SubElement(src, 'image_filename').text = image_filename
         return src
+
+    def generateRusage(self, rusageTuple):
+        exRusage = self.dfxml.find('rusage')
+        if (exRusage is not None):
+            return exRusage
+        rusage = ET.SubElement(self.dfxml, 'rusage')
+        ET.SubElement(rusage, 'utime').text = rusageTuple['ru_utime']
+        ET.SubElement(rusage, 'stime').text = rusageTuple['ru_stime']
+        ET.SubElement(rusage, 'maxrss').text = rusageTuple['ru_maxrss']
+        ET.SubElement(rusage, 'minflt').text = rusageTuple['ru_minflt']
+        ET.SubElement(rusage, 'majflt').text = rusageTuple['ru_majflt']
+        ET.SubElement(rusage, 'nswap').text = rusageTuple['ru_nswap']
+        ET.SubElement(rusage, 'inblock').text = rusageTuple['ru_inblock']
+        ET.SubElement(rusage, 'oublock').text = rusageTuple['ru_oublock']
+        return rusage
 
     '''
     generic addition of a sub-ele into another element
@@ -74,7 +89,7 @@ class DFXMLWriter:
     '''
 
     def generateVolume(self, offset):
-        
+
         for vol in self.dfxml.findall('volume'):
             if(vol.get('offset') == offset):
                 return vol
@@ -84,17 +99,20 @@ class DFXMLWriter:
     generates the Creator node, which contains information about the environment used to make the analysis
     '''
 
-    def generateCreator(self,programName,programVersion):
+    def generateCreator(self, programName, programVersion):
         creator = ET.SubElement(self.dfxml, 'creator')
 
-        ET.SubElement(creator, 'program').text = programName
-        ET.SubElement(
-            creator, 'version').text = programVersion
+        if(not (programName is None or programVersion is None)):
+            ET.SubElement(creator, 'program').text = programName
+            ET.SubElement(
+                creator, 'version').text = programVersion
 
         # what was used to run the code
         be = ET.SubElement(creator, 'build_environment')
         ET.SubElement(be, 'compiler').text = platform.python_compiler()
-        ET.SubElement(be, 'build').text = 'Python '+platform.python_build()[0]
+        if(platform.python_build()[0]):
+            ET.SubElement(be, 'build').text = 'Python ' + \
+                platform.python_build()[0]
 
         # environment in which the info was processed
         ee = ET.SubElement(creator, 'execution_enviornment')
@@ -115,8 +133,12 @@ class DFXMLWriter:
     '''
 
     def newFileObject(self, params_dict, parent):
+        limited_elements = ['parent_object', 'error', 'partition', 'id', 'name_type', 'filesize', 'unalloc', 'alloc', 'alloc_inode', 'alloc_name', 'used', 'unused', 'orphan',
+                           'compressed', 'inode', 'meta_type', 'mode', 'nlink', 'uid', 'gid', 'mtime', 'ctime', 'atime', 'crtime', 'seq', 'dtime', 'bkup_time', 'link_target', 'libmagic']
         fileO = ET.SubElement(parent, 'fileobject')
         for name, val in params_dict.iteritems():
+            if(name in limited_elements and name in fileO.keys()):
+                raise RuntimeError('The {} key was sent more than once'.format(name))
             ET.SubElement(fileO, name).text = val
         return fileO
 
