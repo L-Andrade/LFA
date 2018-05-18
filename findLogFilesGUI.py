@@ -42,6 +42,8 @@ import inspect
 import os
 import logextractor
 import werExtractor
+import netaddr
+
 from java.lang import System
 from java.util.logging import Level
 from javax.swing import JCheckBox
@@ -140,6 +142,18 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
     # Autopsy will pass in the settings from the UI panel
     def __init__(self, settings):
         self.local_settings = settings
+
+    def get_ip_type(self, ip):
+        ip_addr = netaddr.IPAddress(ip)
+        if ip_addr.is_private():
+            return "Private"
+        if ip_addr.is_loopback():
+            return "Loopback"
+        if ip_addr.is_link_local():
+            return "Link-local"
+        if ip_addr.is_reserved():
+            return "Reserved"
+        return "Public"          
 
     # Where any setup and configuration is done
     def startUp(self, context):
@@ -269,6 +283,13 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute IP counter")
 
+        # Create the attribute type ip type, which says if the IP is public or private
+        try:
+            self.att_ip_type = skCase.addArtifactAttributeType(
+                'TSK_LFA_IP_TYPE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Type")
+        except:
+            self.log(Level.INFO, "Error creating attribute IP type")
+
         # Get Attributes after they are created
         self.att_windows_path = skCase.getAttributeType("TSK_LFA_WINDOWS_PATH")
         self.att_log_size = skCase.getAttributeType("TSK_LFA_LOG_SIZE")
@@ -285,6 +306,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.att_dump_files = skCase.getAttributeType("TSK_LFA_DUMP_FILES")
         self.att_ip_address = skCase.getAttributeType("TSK_LFA_IP_ADDRESS")
         self.att_ip_counter = skCase.getAttributeType("TSK_LFA_IP_COUNTER")
+        self.att_ip_type = skCase.getAttributeType("TSK_LFA_IP_TYPE")
 
         self.temp_dir = Case.getCurrentCase().getTempDirectory()
 
@@ -536,6 +558,10 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     # Add file path to artifact
                     ip_art.addAttribute(BlackboardAttribute(
                         self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
+
+                    # Add IP type
+                    ip_type = self.get_ip_type(ip)
+                    ip_art.addAttribute(BlackboardAttribute(self.att_ip_type, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_type))
 
                     # Add artifact to Blackboard
                     try:

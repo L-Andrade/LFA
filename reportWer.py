@@ -180,6 +180,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         generateHTML = self.configPanel.getGenerateHTML()
         generateXLS = self.configPanel.getGenerateXLS()
         generateDFXML = self.configPanel.getGenerateDFXML()
+        generateOnlyTop20 = self.configPanel.getGenerateOnlyTop20()
 
         # First additional step here
         progressBar.increment()
@@ -232,11 +233,12 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         progressBar.updateStatusLabel("Going through Reported program artifacts now, takes some time...")
 
         # Get Attribute types
-        att_reported_app_path = skCase.getAttributeType("TSK_LFA_APP_PATH")
         att_ip_counter = skCase.getAttributeType("TSK_LFA_IP_COUNTER")
         att_ip_address = skCase.getAttributeType("TSK_LFA_IP_ADDRESS")
-        att_event_name = skCase.getAttributeType("TSK_LFA_EVENT_NAME")
         att_ip_log_path = skCase.getAttributeType("TSK_LFA_CASE_FILE_PATH")
+        att_ip_type = skCase.getAttributeType("TSK_LFA_IP_TYPE")
+        att_event_name = skCase.getAttributeType("TSK_LFA_EVENT_NAME")
+        att_reported_app_path = skCase.getAttributeType("TSK_LFA_APP_PATH")
 
         #########################################################
         #  _____                            _             _     #
@@ -348,6 +350,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         # Statistics variables
         ip_dictionary = {}
+        # 1st dict is public, 2nd is private, 3rd is link local and 4th is reserved
+        ip_dict_by_type = [{},{},{},{}]
         ip_file_dictionary = {}
 
         for art_logged_ip in art_list_logged_ips:
@@ -366,12 +370,29 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             ip_address = art_logged_ip.getAttribute(att_ip_address).getValueString()
             ip_counter = int(art_logged_ip.getAttribute(att_ip_counter).getValueString())
             ip_log_file = art_logged_ip.getAttribute(att_ip_log_path).getValueString()
+            ip_type = art_logged_ip.getAttribute(att_ip_type).getValueString()
             # If IP is already in dictionary, add the counter
             if ip_dictionary.get(ip_address):
                 ip_dictionary[ip_address] += ip_counter
+                if ip_type == "Public":
+                    ip_dict_by_type[0][ip_address] += ip_counter
+                elif ip_type == "Private":
+                    ip_dict_by_type[1][ip_address] += ip_counter
+                elif ip_type == "Link-local":
+                    ip_dict_by_type[2][ip_address] += ip_counter
+                elif ip_type == "Reserved":
+                    ip_dict_by_type[3][ip_address] += ip_counter
             # If it's not, add it to dictionary and start with counter
             else:
                 ip_dictionary[ip_address] = ip_counter
+                if ip_type == "Public":
+                    ip_dict_by_type[0][ip_address] = ip_counter
+                elif ip_type == "Private":
+                    ip_dict_by_type[1][ip_address] = ip_counter
+                elif ip_type == "Link-local":
+                    ip_dict_by_type[2][ip_address] = ip_counter
+                elif ip_type == "Reserved":
+                    ip_dict_by_type[3][ip_address] = ip_counter
 
             if ip_file_dictionary.get(ip_address):
                 ip_file_dictionary[ip_address] += 1
@@ -439,11 +460,14 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Generate statistics charts
             xls_ws_statistics = report_xls_wb.add_worksheet()
             xls_ws_statistics_data = report_xls_wb.add_worksheet()
-            chart_ips = report_xls_wb.add_chart({'type': 'column'})
             chart_ips_top20 = report_xls_wb.add_chart({'type': 'column'})
             chart_event_name = report_xls_wb.add_chart({'type': 'bar'})
             chart_is_detected = report_xls_wb.add_chart({'type': 'pie'})
-            chart_ip_file_occur = report_xls_wb.add_chart({'type': 'column'})
+            chart_ip_file_occur_top20 = report_xls_wb.add_chart({'type': 'column'})
+
+            if not generateOnlyTop20:
+                chart_ips = report_xls_wb.add_chart({'type': 'column'})
+                chart_ip_file_occur = report_xls_wb.add_chart({'type': 'column'})
 
             # Change titles
             chart_ips_top20.set_x_axis({
@@ -452,11 +476,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 'num_font':  {'italic': True }
             })
 
-            chart_ips.set_x_axis({
-                'name': 'Rest of IP address occurences',
-                'name_font': {'size': 14, 'bold': True},
-                'num_font':  {'size': 8, 'italic': True }
-            })
 
             chart_event_name.set_x_axis({
                 'name': 'Event name occurences',
@@ -466,11 +485,23 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             chart_is_detected.set_title({'name': 'Programs detected in datasource'})
 
-            chart_ip_file_occur.set_x_axis({
-                'name': 'IP occurs in how many files',
+            chart_ip_file_occur_top20.set_x_axis({
+                'name': 'Top 20 IP occurs in how many files',
                 'name_font': {'size': 14, 'bold': True},
-                'num_font':  {'size': 8, 'italic': True }
+                'num_font':  {'italic': True }
             })
+
+            if not generateOnlyTop20:
+                chart_ips.set_x_axis({
+                    'name': 'Rest of IP address occurences',
+                    'name_font': {'size': 14, 'bold': True},
+                    'num_font':  {'size': 8, 'italic': True }
+                })
+                chart_ip_file_occur.set_x_axis({
+                    'name': 'IP occurs in how many files',
+                    'name_font': {'size': 14, 'bold': True},
+                    'num_font':  {'size': 8, 'italic': True }
+                })
 
             # Row counter
             xls_row_count = 0
@@ -497,6 +528,16 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 event_data[0].append(event)
                 event_data[1].append(counter)
 
+            for i in xrange(0,3):
+                ip_by_type_data = [[], []]
+                dict_len = len(ip_dict_by_type[i])
+                for (ip,ip_by_type_counter) in sorted(ip_dict_by_type[i].iteritems(), key = lambda (k,v): (v,k)):
+                    ip_by_type_data[0].append(ip)
+                    ip_by_type_data[1].append(ip_by_type_counter)
+
+                xls_ws_statistics_data.write_column(0, 8+i, ip_by_type_data[0])
+                xls_ws_statistics_data.write_column(0, 9+i, ip_by_type_data[1])
+
             ip_dict_len = len(ip_dictionary)
             event_dict_len = len(event_dictionary)
             ip_file_dict_len = len(ip_file_dictionary)
@@ -521,16 +562,27 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # 480 is enough for 20 records
             # So, we're going to calculate how much width is necessary
             # For the total amount of IPs (except top 20) we have
-            chart_ips_width = int(round(float((480*(ip_dict_len-20))/20)))
-            chart_ips.add_series({
-                'categories': ['Sheet4', 0, 0, ip_dict_len-20, 0],
-                'values':     ['Sheet4', 0, 1, ip_dict_len-20, 1],
-                'gap': 100,
-                'data_labels': {'value': True}
-            })
+            if not generateOnlyTop20:
+                chart_ips_width = int(round(float((480*(ip_dict_len-20))/20)))
+                chart_ips.add_series({
+                    'categories': ['Sheet4', 0, 0, ip_dict_len-20, 0],
+                    'values':     ['Sheet4', 0, 1, ip_dict_len-20, 1],
+                    'gap': 100,
+                    'data_labels': {'value': True}
+                })
 
-            # Also doubling height
-            chart_ips.set_size({'width': chart_ips_width, 'height': 576})
+                # Also doubling height
+                chart_ips.set_size({'width': chart_ips_width, 'height': 576})
+
+                # IP mentioned in 'x' files
+                chart_ip_file_width = int(round(float((480*(ip_file_dict_len))/20)))
+                chart_ip_file_occur.set_size({'width': chart_ip_file_width})
+                chart_ip_file_occur.add_series({
+                    'categories': ['Sheet4', 0, 6, ip_file_dict_len-20, 6],
+                    'values':     ['Sheet4', 0, 7, ip_file_dict_len-20, 7],
+                    'gap': 150,
+                    'data_labels': {'value': True}
+                })
 
             # Only top 20
             chart_ips_top20.add_series({
@@ -557,12 +609,11 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 'values':     ['Sheet4', 0, 5, 1, 5]
             })
 
-            # IP mentioned in 'x' files
-            chart_ip_file_width = int(round(float((480*(ip_file_dict_len))/20)))
-            chart_ip_file_occur.set_size({'width': chart_ip_file_width})
-            chart_ip_file_occur.add_series({
-                'categories': ['Sheet4', 0, 6, ip_file_dict_len, 6],
-                'values':     ['Sheet4', 0, 7, ip_file_dict_len, 7],
+            # IP mentioned in 'x' files top20
+            chart_ip_file_occur_top20.set_size({'width': 960})
+            chart_ip_file_occur_top20.add_series({
+                'categories': ['Sheet4', ip_file_dict_len-20, 6, ip_file_dict_len, 6],
+                'values':     ['Sheet4', ip_file_dict_len-20, 7, ip_file_dict_len, 7],
                 'gap': 150,
                 'data_labels': {'value': True}
             })
@@ -573,13 +624,16 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             xls_ws_statistics.insert_chart('A3', chart_ips_top20)
 
-            xls_ws_statistics.insert_chart('A20', chart_ips)
-
             xls_ws_statistics.insert_chart('Q3', chart_event_name)
 
             xls_ws_statistics.insert_chart('A50', chart_is_detected)
 
-            xls_ws_statistics.insert_chart('J50', chart_ip_file_occur)
+            xls_ws_statistics.insert_chart('A75', chart_ip_file_occur_top20)
+
+            if not generateOnlyTop20:
+                xls_ws_statistics.insert_chart('A20', chart_ips)
+
+                xls_ws_statistics.insert_chart('J50', chart_ip_file_occur)
 
             report_xls_wb.close()
             # Add the report to the Case, so it is shown in the tree
@@ -592,13 +646,26 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         self.configPanel = LFA_ConfigPanel()
         return self.configPanel
 
+#########################################################################
+#   _____                __  _          _____                     _     #
+#  / ____|              / _|(_)        |  __ \                   | |    #
+# | |      ___   _ __  | |_  _   __ _  | |__) |__ _  _ __    ___ | |    #
+# | |     / _ \ | '_ \ |  _|| | / _` | |  ___// _` || '_ \  / _ \| |    #
+# | |____| (_) || | | || |  | || (_| | | |   | (_| || | | ||  __/| |    #
+#  \_____|\___/ |_| |_||_|  |_| \__, | |_|    \__,_||_| |_| \___||_|    #
+#                                __/ |                                  #
+#                               |___/                                   #
+#########################################################################
+
 class LFA_ConfigPanel(JPanel):
     generateXLS = True
     generateHTML = True
     generateDFXML = True
+    generateOnlyTop20 = False
     cbGenerateExcel = None
     cbGenerateCSV = None
     cbGenerateDFXML = None
+    cbGenerateOnlyTop20 = None
 
     def __init__(self):
         self.initComponents()
@@ -611,6 +678,9 @@ class LFA_ConfigPanel(JPanel):
 
     def getGenerateDFXML(self):
         return self.generateDFXML
+
+    def getGenerateOnlyTop20(self):
+        return self.generateOnlyTop20
 
     def initComponents(self):
         self.setLayout(BoxLayout(self, BoxLayout.Y_AXIS))
@@ -630,6 +700,10 @@ class LFA_ConfigPanel(JPanel):
         self.cbGenerateDFXML.setSelected(True)
         self.add(self.cbGenerateDFXML)
 
+        self.cbGenerateOnlyTop20 = JCheckBox("Generate only Top 20 charts (Excel only)", actionPerformed=self.cbGenerateOnlyTop20ActionPerformed)
+        self.cbGenerateOnlyTop20.setSelected(False)
+        self.add(self.cbGenerateOnlyTop20)
+
     def cbGenerateExcelActionPerformed(self, event):
         self.generateXLS = event.getSource().isSelected()
 
@@ -638,3 +712,6 @@ class LFA_ConfigPanel(JPanel):
 
     def cbGenerateDFXMLActionPerformed(self, event):
         self.generateDFXML = event.getSource().isSelected()
+
+    def cbGenerateOnlyTop20ActionPerformed(self, event):
+        self.generateOnlyTop20 = event.getSource().isSelected()
