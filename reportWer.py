@@ -53,7 +53,7 @@ from javax.swing import JLabel
 from javax.swing import BoxLayout
 
 XLS_REPORTED_HEADER_COUNT = 6
-XLS_IPS_HEADER_COUNT = 3
+XLS_IPS_HEADER_COUNT = 4
 
 class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
@@ -351,8 +351,10 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # Statistics variables
         ip_dictionary = {}
         # 1st dict is public, 2nd is private, 3rd is link local and 4th is reserved
-        ip_dict_by_type = [{},{},{},{}]
+        array_ip_dicts_by_type = [{},{},{},{}]
         ip_file_dictionary = {}
+
+        ip_type_arr_str = ['Public', 'Private','Reserved', 'Loopback', 'Link-local']
 
         for art_logged_ip in art_list_logged_ips:
             art_count += 1
@@ -374,25 +376,29 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # If IP is already in dictionary, add the counter
             if ip_dictionary.get(ip_address):
                 ip_dictionary[ip_address] += ip_counter
-                if ip_type == "Public":
-                    ip_dict_by_type[0][ip_address] += ip_counter
-                elif ip_type == "Private":
-                    ip_dict_by_type[1][ip_address] += ip_counter
-                elif ip_type == "Link-local":
-                    ip_dict_by_type[2][ip_address] += ip_counter
-                elif ip_type == "Reserved":
-                    ip_dict_by_type[3][ip_address] += ip_counter
+                if ip_type == ip_type_arr_str[0]:
+                    array_ip_dicts_by_type[0][ip_address] += ip_counter
+                elif ip_type == ip_type_arr_str[1]:
+                    array_ip_dicts_by_type[1][ip_address] += ip_counter
+                elif ip_type == ip_type_arr_str[2]:
+                    array_ip_dicts_by_type[2][ip_address] += ip_counter
+                elif ip_type == ip_type_arr_str[3]:
+                    array_ip_dicts_by_type[3][ip_address] += ip_counter
+                elif ip_type == ip_type_arr_str[4]:
+                    array_ip_dicts_by_type[4][ip_address] += ip_counter
             # If it's not, add it to dictionary and start with counter
             else:
                 ip_dictionary[ip_address] = ip_counter
-                if ip_type == "Public":
-                    ip_dict_by_type[0][ip_address] = ip_counter
-                elif ip_type == "Private":
-                    ip_dict_by_type[1][ip_address] = ip_counter
-                elif ip_type == "Link-local":
-                    ip_dict_by_type[2][ip_address] = ip_counter
-                elif ip_type == "Reserved":
-                    ip_dict_by_type[3][ip_address] = ip_counter
+                if ip_type == ip_type_arr_str[0]:
+                    array_ip_dicts_by_type[0][ip_address] = ip_counter
+                elif ip_type == ip_type_arr_str[1]:
+                    array_ip_dicts_by_type[1][ip_address] = ip_counter
+                elif ip_type == ip_type_arr_str[2]:
+                    array_ip_dicts_by_type[2][ip_address] = ip_counter
+                elif ip_type == ip_type_arr_str[3]:
+                    array_ip_dicts_by_type[3][ip_address] = ip_counter
+                elif ip_type == ip_type_arr_str[4]:
+                    array_ip_dicts_by_type[4][ip_address] = ip_counter
 
             if ip_file_dictionary.get(ip_address):
                 ip_file_dictionary[ip_address] += 1
@@ -413,7 +419,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                                             {'columns':[
                                                 {'header': 'IP Address'},
                                                 {'header': 'Occurences'},
-                                                {'header': 'Log path'}
+                                                {'header': 'Log path'},
+                                                {'header': 'Type'}
                                             ]})
 
             xls_ws_logged_ips.write(xls_row_count+1, 0, ips_info_str)
@@ -528,15 +535,33 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 event_data[0].append(event)
                 event_data[1].append(counter)
 
-            for i in xrange(0,3):
+            for i in xrange(len(array_ip_dicts_by_type)):
+                ip_type_str = ip_type_arr_str[i]
                 ip_by_type_data = [[], []]
-                dict_len = len(ip_dict_by_type[i])
-                for (ip,ip_by_type_counter) in sorted(ip_dict_by_type[i].iteritems(), key = lambda (k,v): (v,k)):
+                dict_len = len(array_ip_dicts_by_type[i])
+                for (ip,ip_by_type_counter) in sorted(array_ip_dicts_by_type[i].iteritems(), key = lambda (k,v): (v,k)):
                     ip_by_type_data[0].append(ip)
                     ip_by_type_data[1].append(ip_by_type_counter)
 
-                xls_ws_statistics_data.write_column(0, 8+i, ip_by_type_data[0])
-                xls_ws_statistics_data.write_column(0, 9+i, ip_by_type_data[1])
+                xls_ws_statistics_data.write_column(0, 8+i*2, ip_by_type_data[0])
+                xls_ws_statistics_data.write_column(0, 9+i*2, ip_by_type_data[1])
+
+                chart_ips_by_type_top20 = report_xls_wb.add_chart({'type': 'column'})
+
+                chart_ips_by_type_top20.set_x_axis({
+                    'name': 'Top 20 '+ ip_type_str +' IP address occurences',
+                    'name_font': {'size': 14, 'bold': True},
+                    'num_font':  {'italic': True }
+                })
+                start_cell_row = dict_len-20 if dict_len >= 20 else 0
+                chart_ips_by_type_top20.add_series({
+                    'categories': ['Sheet4', start_cell_row, 8+i*2, dict_len, 8+i*2],
+                    'values':     ['Sheet4', start_cell_row, 9+i*2, dict_len, 9+i*2],
+                    'gap': 150,
+                    'data_labels': {'value': True}
+                })
+
+                xls_ws_statistics.insert_chart(0,80+i*10, chart_ips_by_type_top20)
 
             ip_dict_len = len(ip_dictionary)
             event_dict_len = len(event_dictionary)
