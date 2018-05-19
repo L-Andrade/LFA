@@ -350,8 +350,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         # Statistics variables
         ip_dictionary = {}
-        # 1st dict is public, 2nd is private, 3rd is link local and 4th is reserved
-        array_ip_dicts_by_type = [{},{},{},{}]
+        # Order specified below in ip_type_arr_str
+        array_ip_dicts_by_type = [{},{},{},{}, {}]
         ip_file_dictionary = {}
 
         ip_type_arr_str = ['Public', 'Private','Reserved', 'Loopback', 'Link-local']
