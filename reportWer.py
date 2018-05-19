@@ -493,7 +493,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             chart_is_detected.set_title({'name': 'Programs detected in datasource'})
 
             chart_ip_file_occur_top20.set_x_axis({
-                'name': 'Top 20 IP occurs in how many files',
+                'name': 'Top 20 IP individual file occurences',
                 'name_font': {'size': 14, 'bold': True},
                 'num_font':  {'italic': True }
             })
@@ -505,7 +505,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                     'num_font':  {'size': 8, 'italic': True }
                 })
                 chart_ip_file_occur.set_x_axis({
-                    'name': 'IP occurs in how many files',
+                    'name': 'IP individual file occurences (appears in how many files)',
                     'name_font': {'size': 14, 'bold': True},
                     'num_font':  {'size': 8, 'italic': True }
                 })
@@ -561,7 +561,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                     'data_labels': {'value': True}
                 })
 
-                xls_ws_statistics.insert_chart(0,80+i*10, chart_ips_by_type_top20)
+                xls_ws_statistics.insert_chart(0,26+i*10, chart_ips_by_type_top20)
 
             ip_dict_len = len(ip_dictionary)
             event_dict_len = len(event_dictionary)
