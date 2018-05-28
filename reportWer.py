@@ -33,6 +33,7 @@ import os
 import inspect
 import bs4
 import xlsxwriter
+import datetime
 
 from dfxmlwriter import dfxml_writer
 
@@ -103,11 +104,10 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             fo = dfxml.newFileObject({
                 'filename': filename+file_extension,
                 'filesize': str(source_file.getSize()),
-                'ext': file_extension,
-                'ctime': str(source_file.getCtime()),
-                'atime': str(source_file.getAtime()),
-                'crtime': str(source_file.getCrtime()),
-                'mtime': str(source_file.getMtime()),
+                'mtime': datetime.datetime.fromtimestamp(source_file.getMtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'),
+                'ctime': datetime.datetime.fromtimestamp(source_file.getCtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'),
+                'atime': datetime.datetime.fromtimestamp(source_file.getAtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'),
+                'crtime': datetime.datetime.fromtimestamp(source_file.getCrtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'),
 
             }, vol)
             md5 = source_file.getMd5Hash() 
@@ -131,8 +131,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 xls_col_count += 1
 
             if generateDFXML:
-                att = ['type', attribute.getAttributeTypeDisplayName()]
-                dfxml.addParamsToNode(fo, 'attribute', attribute_value, att)
+                att = {'type': attribute.getAttributeTypeDisplayName()}
+                dfxml.addParamsToNode(fo, 'dc:attribute', attribute_value, att)
 
                 
 
