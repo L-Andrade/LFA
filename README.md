@@ -12,16 +12,16 @@ reportWer: A report module that queries the blackboard for the information that 
 
 # Installation
 
-*   Download as ZIP (Clone or download -> Download ZIP)
-*   Go to your Python Modules folder:
+1.  Download as ZIP (Clone or download -> Download ZIP)
+2.  Go to your Python Modules folder:
     1. Open Autopsy
     2. Tools > Python Plugins
-*   Unzip the downloaded ZIP inside the folder opened by Autopsy
-*   Rename the LFA-master folder to LFA (this shouldn't be required)
-*   Restart or start Autopsy to compile all the libraries and files
-*   Open your case and run the LFA file ingest module
-*   Run the LFA Report Module with the desired options
-*   Open the default report (HTML) or go to Reports in the Tree Viewer to choose a report to open
+3.  Unzip the downloaded ZIP inside the folder opened by Autopsy
+4.  Rename the LFA-master folder to LFA (this shouldn't be required)
+5.  Restart or start Autopsy to compile all the libraries and files
+6.  Open your case and run the LFA file ingest module
+7.  Run the LFA Report Module with the desired options
+8.  Open the default report (HTML) or go to Reports in the Tree Viewer to choose a report to open
 
 # Project description (PT)
 
