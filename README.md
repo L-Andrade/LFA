@@ -4,9 +4,24 @@ Log Forensics for Autopsy
 
 # Modules
 
-findLogFilesGUI: A file ingest module that finds log files (.evtx, .log, .dmp, .wer, .etl). In case of .wer file it also creates a Reported program artifact if the .wer is valid.
+LFA was tested using Autopsy 4.6.0 in two different personal computers, both running Windows 10. It should also run in Linux.
 
-reportWer: A report module that queries the blackboard for the information that the file ingest produced and reports it to HTML and Excel.
+findLogFilesGUI: A file ingest module that finds log files (.evtx, .log, .dmp, .wer, .etl). In case of .wer file it creates a Reported program artifact if the .wer is valid. In case of .log file it creates an artifact for each different IP found in the .log, the number of occurences in that file and the IP type.
+
+reportWer: A report module that queries the blackboard for the information that the file ingest produced and reports it to HTML, Excel and/or DFXML. The Excel format contains several charts for statistics. The report module is used to enhance the information gathered by the file ingest module.
+
+# Installation
+
+1. Download as ZIP (Clone or download -> Download ZIP)
+2. Go to your Python Modules folder:
+    2.1. Open Autopsy
+    2.2. Tools > Python Plugins
+3. Unzip the downloaded ZIP inside the folder opened by Autopsy
+4. Rename the LFA-master folder to LFA (this shouldn't be required)
+5. Restart or start Autopsy to compile all the libraries and files
+6. Open your case and run the LFA file ingest module
+7. Run the LFA Report Module with the desired options
+8. Open the default report (HTML) or go to Reports in the Tree Viewer to choose a report to open
 
 # Project description (PT)
 
