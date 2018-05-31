@@ -4,11 +4,11 @@ Log Forensics for Autopsy
 
 # Modules
 
-LFA was tested using Autopsy 4.6.0 in two different personal computers, both running Windows 10. It should also run in Linux.
+**LFA** was tested using Autopsy 4.6.0 in two different personal computers, both running Windows 10. It should also run in Linux.
 
-findLogFilesGUI: A file ingest module that finds log files (.evtx, .log, .dmp, .wer, .etl). In case of .wer file it creates a Reported program artifact if the .wer is valid. In case of .log file it creates an artifact for each different IP found in the .log, the number of occurences in that file and the IP type.
+**findLogFilesGUI:** A file ingest module that finds log files (.evtx, .log, .dmp, .wer, .etl). In case of .wer file it creates a Reported program artifact if the .wer is valid. In case of .log file it creates an artifact for each different IP found in the .log, the number of occurences in that file and the IP type.
 
-reportWer: A report module that queries the blackboard for the information that the file ingest produced and reports it to HTML, Excel and/or DFXML. The Excel format contains several charts for statistics. The report module is used to enhance the information gathered by the file ingest module.
+**reportWer:** A report module that queries the blackboard for the information that the file ingest produced and reports it to HTML, Excel and/or DFXML. The Excel format contains several charts for statistics. The report module is used to enhance the information gathered by the file ingest module.
 
 # Installation
 
@@ -22,6 +22,15 @@ reportWer: A report module that queries the blackboard for the information that 
 6.  Open your case and run the LFA file ingest module
 7.  Run the LFA Report Module with the desired options
 8.  Open the default report (HTML) or go to Reports in the Tree Viewer to choose a report to open
+
+# Authors
+
+LFA was developed by Luís Andrade and João Silva, two students of Computer Science at IPLeiria.
+Mentored by Patrício Domingues and Miguel Frade and proposed by Patrício Domingues.
+
+**Contacts:**
+Luís Andrade - 2150694@my.ipleiria.pt
+João Silva - 2150695@my.ipleiria.pt
 
 # Project description (PT)
 
