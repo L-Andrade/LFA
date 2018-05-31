@@ -1,6 +1,9 @@
-# LFA
+# Log Forensics for Autopsy
 
-Log Forensics for Autopsy
+*   [Modules]("#modules")
+*   [Installation]("#installation")
+*   [Authors]("#authors")
+*   [Project Description]("#project-description-pt")
 
 # Modules
 
@@ -28,9 +31,9 @@ Log Forensics for Autopsy
 LFA was developed by Luís Andrade and João Silva, two students of Computer Science at IPLeiria.
 Mentored by Patrício Domingues and Miguel Frade and proposed by Patrício Domingues.
 
-**Contacts:**
-Luís Andrade - 2150694@my.ipleiria.pt
-João Silva - 2150695@my.ipleiria.pt
+**Contacts:**  
+Luís Andrade - 2150694@my.ipleiria.pt  
+João Silva - 2150695@my.ipleiria.pt  
 
 # Project description (PT)
 
