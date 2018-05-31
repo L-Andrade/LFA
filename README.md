@@ -1,9 +1,9 @@
 # Log Forensics for Autopsy
 
-*   [Modules]("#modules")
-*   [Installation]("#installation")
-*   [Authors]("#authors")
-*   [Project Description]("#project-description-pt")
+*   [Modules](#modules)
+*   [Installation](#installation)
+*   [Authors](#authors)
+*   [Project Description](#project-description-pt)
 
 # Modules
 
