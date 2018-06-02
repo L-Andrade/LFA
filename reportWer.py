@@ -368,7 +368,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             # For statistics
             # IPs are separated by file
-            # With this, we basically join the occurences counter
+            # With this, we basically join the occurrences counter
             ip_address = art_logged_ip.getAttribute(att_ip_address).getValueString()
             ip_counter = int(art_logged_ip.getAttribute(att_ip_counter).getValueString())
             ip_log_file = art_logged_ip.getAttribute(att_ip_log_path).getValueString()
@@ -418,7 +418,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             xls_ws_logged_ips.add_table(0,0,xls_row_count-1,XLS_IPS_HEADER_COUNT-1, 
                                             {'columns':[
                                                 {'header': 'IP Address'},
-                                                {'header': 'Occurences'},
+                                                {'header': 'Occurrences'},
                                                 {'header': 'Log path'},
                                                 {'header': 'Type'}
                                             ]})
@@ -478,14 +478,14 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             # Change titles
             chart_ips_top20.set_x_axis({
-                'name': 'Top 20 IP address occurences',
+                'name': 'Top 20 IP address occurrences',
                 'name_font': {'size': 14, 'bold': True},
                 'num_font':  {'italic': True }
             })
 
 
             chart_event_name.set_x_axis({
-                'name': 'Event name occurences',
+                'name': 'Event name occurrences',
                 'name_font': {'size': 14, 'bold': True},
                 'num_font':  {'size': 8, 'italic': True }
             })
@@ -493,19 +493,19 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             chart_is_detected.set_title({'name': 'Programs detected in datasource'})
 
             chart_ip_file_occur_top20.set_x_axis({
-                'name': 'Top 20 IP individual file occurences',
+                'name': 'Top 20 IP individual file occurrences',
                 'name_font': {'size': 14, 'bold': True},
                 'num_font':  {'italic': True }
             })
 
             if not generateOnlyTop20:
                 chart_ips.set_x_axis({
-                    'name': 'Rest of IP address occurences',
+                    'name': 'Rest of IP address occurrences',
                     'name_font': {'size': 14, 'bold': True},
                     'num_font':  {'size': 8, 'italic': True }
                 })
                 chart_ip_file_occur.set_x_axis({
-                    'name': 'IP individual file occurences (appears in how many files)',
+                    'name': 'IP individual file occurrences (appears in how many files)',
                     'name_font': {'size': 14, 'bold': True},
                     'num_font':  {'size': 8, 'italic': True }
                 })
@@ -549,7 +549,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 chart_ips_by_type_top20 = report_xls_wb.add_chart({'type': 'column'})
 
                 chart_ips_by_type_top20.set_x_axis({
-                    'name': 'Top 20 '+ ip_type_str +' IP address occurences',
+                    'name': 'Top 20 '+ ip_type_str +' IP address occurrences',
                     'name_font': {'size': 14, 'bold': True},
                     'num_font':  {'italic': True }
                 })

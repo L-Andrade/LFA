@@ -255,7 +255,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute Event name")
 
-        # Create the attribute type Event time, which is a FILETIME from the time the error occured, if it already exists, catch error
+        # Create the attribute type Event time, which is a FILETIME from the time the error occurred, if it already exists, catch error
         try:
             self.att_event_time = skCase.addArtifactAttributeType(
                 'TSK_LFA_EVENT_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Event time")
@@ -276,10 +276,10 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute IP address")
 
-        # Create the attribute type Occurences, which means how many times an IP was seen in a file
+        # Create the attribute type Occurrences, which means how many times an IP was seen in a file
         try:
             self.att_ip_counter = skCase.addArtifactAttributeType(
-                'TSK_LFA_IP_COUNTER', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Occurences")
+                'TSK_LFA_IP_COUNTER', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Occurrences")
         except:
             self.log(Level.INFO, "Error creating attribute IP counter")
 
@@ -448,7 +448,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 self.log(
                     Level.INFO, "Extracted .wer file of id " + str(file.getId()))
 
-                # Check if any error occured
+                # Check if any error occurred
                 if wer_info.get('Error'):
                     self.log(
                         Level.INFO, "Could not parse .wer file of id: " + str(file.getId()))
@@ -540,7 +540,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     Level.INFO, "Extracted .log file of id " + str(file.getId()))
                 self.log(Level.INFO, "Log info size: " + str(len(log_info)))
 
-                # Check if any error occured
+                # Check if any error occurred
                 error = log_info.get('Error')
                 if error:
                     self.log(
