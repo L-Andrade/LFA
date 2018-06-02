@@ -417,10 +417,11 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
             xls_ws_logged_ips.add_table(0,0,xls_row_count-1,XLS_IPS_HEADER_COUNT-1, 
                                             {'columns':[
+                                                {'header': 'Type'},
+                                                {'header': 'Version'},
                                                 {'header': 'IP Address'},
                                                 {'header': 'Occurrences'},
-                                                {'header': 'Log path'},
-                                                {'header': 'Type'}
+                                                {'header': 'Log path'}
                                             ]})
 
             xls_ws_logged_ips.write(xls_row_count+1, 0, ips_info_str)
