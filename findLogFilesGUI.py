@@ -283,12 +283,19 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute IP counter")
 
-        # Create the attribute type ip type, which says if the IP is public or private
+        # Create the attribute type IP type, which says if the IP is public or private
         try:
             self.att_ip_type = skCase.addArtifactAttributeType(
                 'TSK_LFA_IP_TYPE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Type")
         except:
             self.log(Level.INFO, "Error creating attribute IP type")
+
+        # Create the attribute type IP version, which says if the IP is public or private
+        try:
+            self.att_ip_version = skCase.addArtifactAttributeType(
+                'TSK_LFA_IP_VERSION', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Version")
+        except:
+            self.log(Level.INFO, "Error creating attribute IP Version")
 
         # Get Attributes after they are created
         self.att_windows_path = skCase.getAttributeType("TSK_LFA_WINDOWS_PATH")
@@ -307,6 +314,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.att_ip_address = skCase.getAttributeType("TSK_LFA_IP_ADDRESS")
         self.att_ip_counter = skCase.getAttributeType("TSK_LFA_IP_COUNTER")
         self.att_ip_type = skCase.getAttributeType("TSK_LFA_IP_TYPE")
+        self.att_ip_version = skCase.getAttributeType("TSK_LFA_IP_VERSION")
 
         self.temp_dir = Case.getCurrentCase().getTempDirectory()
 
@@ -545,12 +553,18 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 for (ip, counter) in log_info.iteritems():
                     # Create artifact
                     ip_art = file.newArtifact(self.art_logged_ip.getTypeID())
-                    self.log(
-                        Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
+                    self.log(Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
+
+                    # Add IP type
+                    ip_type = self.get_ip_type(ip)
+                    ip_art.addAttribute(BlackboardAttribute(self.att_ip_type, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_type))
+
+                    # Add IP version
+                    ip_version = "IPv" + str(netaddr.IPAddress(ip).version)
+                    ip_art.addAttribute(BlackboardAttribute(self.att_ip_version, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_version))
 
                     # Add IP to artifact
-                    ip_art.addAttribute(BlackboardAttribute(
-                        self.att_ip_address, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(ip)))
+                    ip_art.addAttribute(BlackboardAttribute(self.att_ip_address, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(ip)))
 
                     # Add counter to artifact
                     ip_art.addAttribute(BlackboardAttribute(self.att_ip_counter, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(counter)))
@@ -558,10 +572,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     # Add file path to artifact
                     ip_art.addAttribute(BlackboardAttribute(
                         self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
-
-                    # Add IP type
-                    ip_type = self.get_ip_type(ip)
-                    ip_art.addAttribute(BlackboardAttribute(self.att_ip_type, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_type))
 
                     # Add artifact to Blackboard
                     try:
