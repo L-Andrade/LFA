@@ -54,7 +54,11 @@ from javax.swing import JLabel
 from javax.swing import BoxLayout
 
 XLS_REPORTED_HEADER_COUNT = 6
-XLS_IPS_HEADER_COUNT = 4
+XLS_IPS_HEADER_COUNT = 5
+WS_NAME_STATISTICS = 'Statistics'
+WS_NAME_STATISTICS_DATA = 'Raw data'
+WS_NAME_REPORTED_PROGRAMS = 'Reported programs'
+WS_NAME_LOGGED_IPS = 'Logged IPs'
 
 class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
@@ -217,8 +221,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             # Create a workbook and add a worksheet.
             report_xls_wb = xlsxwriter.Workbook(xls_file_name)
-            xls_ws_reported = report_xls_wb.add_worksheet()
-            xls_ws_logged_ips = report_xls_wb.add_worksheet()
+            xls_ws_reported = report_xls_wb.add_worksheet(WS_NAME_REPORTED_PROGRAMS)
+            xls_ws_logged_ips = report_xls_wb.add_worksheet(WS_NAME_LOGGED_IPS)
 
         if generateDFXML:
             dfxml_path = os.path.join(baseReportDir, self.getRelativeFilePathDFXML())
@@ -237,6 +241,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         att_ip_address = skCase.getAttributeType("TSK_LFA_IP_ADDRESS")
         att_ip_log_path = skCase.getAttributeType("TSK_LFA_CASE_FILE_PATH")
         att_ip_type = skCase.getAttributeType("TSK_LFA_IP_TYPE")
+        att_ip_version = skCase.getAttributeType("TSK_LFA_IP_VERSION")
         att_event_name = skCase.getAttributeType("TSK_LFA_EVENT_NAME")
         att_reported_app_path = skCase.getAttributeType("TSK_LFA_APP_PATH")
 
@@ -350,11 +355,18 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         # Statistics variables
         ip_dictionary = {}
+
         # Order specified below in ip_type_arr_str
         array_ip_dicts_by_type = [{},{},{},{}, {}]
-        ip_file_dictionary = {}
-
         ip_type_arr_str = ['Public', 'Private','Reserved', 'Loopback', 'Link-local']
+
+        # Order specified below in ip_version_arr_str
+        array_ip_dicts_by_version = [{}, {}]
+        ip_version_arr_str = ['IPv4', 'IPv6']
+        
+        ip_file_dictionary = {}
+        ipv4_occurrences = 0
+        ipv6_occurrences = 0
 
         for art_logged_ip in art_list_logged_ips:
             art_count += 1
@@ -373,9 +385,14 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             ip_counter = int(art_logged_ip.getAttribute(att_ip_counter).getValueString())
             ip_log_file = art_logged_ip.getAttribute(att_ip_log_path).getValueString()
             ip_type = art_logged_ip.getAttribute(att_ip_type).getValueString()
+            ip_version = art_logged_ip.getAttribute(att_ip_version).getValueString()
+
             # If IP is already in dictionary, add the counter
             if ip_dictionary.get(ip_address):
+                # Increment it in main dictionary
                 ip_dictionary[ip_address] += ip_counter
+
+                # Increment it in it's type dictionary
                 if ip_type == ip_type_arr_str[0]:
                     array_ip_dicts_by_type[0][ip_address] += ip_counter
                 elif ip_type == ip_type_arr_str[1]:
@@ -386,9 +403,20 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                     array_ip_dicts_by_type[3][ip_address] += ip_counter
                 elif ip_type == ip_type_arr_str[4]:
                     array_ip_dicts_by_type[4][ip_address] += ip_counter
+
+                # Add it to it's version dictionary
+                if ip_version == ip_version_arr_str[0]:
+                    ipv4_occurrences += ip_counter
+                    array_ip_dicts_by_version[0][ip_address] += ip_counter
+                elif ip_version == ip_version_arr_str[1]:
+                    ipv6_occurrences += ip_counter
+                    array_ip_dicts_by_version[1][ip_address] += ip_counter
             # If it's not, add it to dictionary and start with counter
             else:
+                # Add it to main dictionary
                 ip_dictionary[ip_address] = ip_counter
+
+                # Add it to it's type dictionary
                 if ip_type == ip_type_arr_str[0]:
                     array_ip_dicts_by_type[0][ip_address] = ip_counter
                 elif ip_type == ip_type_arr_str[1]:
@@ -400,6 +428,16 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 elif ip_type == ip_type_arr_str[4]:
                     array_ip_dicts_by_type[4][ip_address] = ip_counter
 
+                # Add it to it's version dictionary
+                if ip_version == ip_version_arr_str[0]:
+                    ipv4_occurrences += ip_counter
+                    array_ip_dicts_by_version[0][ip_address] = ip_counter
+                elif ip_version == ip_version_arr_str[1]:
+                    ipv6_occurrences += ip_counter
+                    array_ip_dicts_by_version[1][ip_address] = ip_counter
+
+            # Every time the IP is mentioned (once for every artifact)
+            # Increment a counter by 1
             if ip_file_dictionary.get(ip_address):
                 ip_file_dictionary[ip_address] += 1
             else:
@@ -466,11 +504,12 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             progressBar.updateStatusLabel("Generating statistics for Excel...")
             
             # Generate statistics charts
-            xls_ws_statistics = report_xls_wb.add_worksheet()
-            xls_ws_statistics_data = report_xls_wb.add_worksheet()
+            xls_ws_statistics = report_xls_wb.add_worksheet(WS_NAME_STATISTICS)
+            xls_ws_statistics_data = report_xls_wb.add_worksheet(WS_NAME_STATISTICS_DATA)
             chart_ips_top20 = report_xls_wb.add_chart({'type': 'column'})
             chart_event_name = report_xls_wb.add_chart({'type': 'bar'})
             chart_is_detected = report_xls_wb.add_chart({'type': 'pie'})
+            chart_ip_version_occurrences = report_xls_wb.add_chart({'type': 'pie'})
             chart_ip_file_occur_top20 = report_xls_wb.add_chart({'type': 'column'})
 
             if not generateOnlyTop20:
@@ -492,6 +531,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             })
 
             chart_is_detected.set_title({'name': 'Programs detected in datasource'})
+            chart_ip_version_occurrences.set_title({'name': 'IP occurrences by version'})
 
             chart_ip_file_occur_top20.set_x_axis({
                 'name': 'Top 20 IP individual file occurrences',
@@ -520,7 +560,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             event_data = [[], []]
             ip_file_data = [[], []]
             is_detected_data = [['Detected', 'Not detected'], [programs_detected, len(art_list_reported_progs)-programs_detected]]
-
+            ip_version_occurs_data = [['IPv4', 'IPv6'], [ipv4_occurrences, ipv6_occurrences]]
             # Iterate over IP dictionary, sorted by ascending counter
             for (ip,counter) in sorted(ip_dictionary.iteritems(), key = lambda (k,v): (v,k)):
                 ip_data[0].append(ip)
@@ -536,6 +576,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 event_data[0].append(event)
                 event_data[1].append(counter)
 
+            # Iterate over each IP type dict
+            # Add its chart to the report
             for i in xrange(len(array_ip_dicts_by_type)):
                 ip_type_str = ip_type_arr_str[i]
                 ip_by_type_data = [[], []]
@@ -556,13 +598,47 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 })
                 start_cell_row = dict_len-20 if dict_len >= 20 else 0
                 chart_ips_by_type_top20.add_series({
-                    'categories': ['Sheet4', start_cell_row, 8+i*2, dict_len, 8+i*2],
-                    'values':     ['Sheet4', start_cell_row, 9+i*2, dict_len, 9+i*2],
+                    'categories': [WS_NAME_STATISTICS_DATA, start_cell_row, 8+i*2, dict_len, 8+i*2],
+                    'values':     [WS_NAME_STATISTICS_DATA, start_cell_row, 9+i*2, dict_len, 9+i*2],
                     'gap': 150,
                     'data_labels': {'value': True}
                 })
 
                 xls_ws_statistics.insert_chart(0,26+i*10, chart_ips_by_type_top20)
+
+            # Same deal with the IP version
+            for i in xrange(len(array_ip_dicts_by_version)):
+                ip_version_str = ip_version_arr_str[i]
+                ip_by_version_data = [[], []]
+                dict_len = len(array_ip_dicts_by_version[i])
+                for (ip,ip_by_version_counter) in sorted(array_ip_dicts_by_version[i].iteritems(), key = lambda (k,v): (v,k)):
+                    ip_by_version_data[0].append(ip)
+                    ip_by_version_data[1].append(ip_by_version_counter)
+
+                xls_ws_statistics_data.write_column(0, 18+i*2, ip_by_version_data[0])
+                xls_ws_statistics_data.write_column(0, 19+i*2, ip_by_version_data[1])
+
+                chart_ips_by_version_top20 = report_xls_wb.add_chart({'type': 'column'})
+
+                # Double the width, as occurrences can be large numbers
+                chart_ips_by_version_top20.set_size({'width': 480*2})
+
+                chart_ips_by_version_top20.set_x_axis({
+                    'name': 'Top 20 '+ ip_version_str +' IP address occurrences',
+                    'name_font': {'size': 14, 'bold': True},
+                    'num_font':  {'italic': True }
+                })
+
+                start_cell_row = dict_len-20 if dict_len >= 20 else 0
+                chart_ips_by_version_top20.add_series({
+                    'categories': [WS_NAME_STATISTICS_DATA, start_cell_row, 18+i*2, dict_len, 18+i*2],
+                    'values':     [WS_NAME_STATISTICS_DATA, start_cell_row, 19+i*2, dict_len, 19+i*2],
+                    'gap': 150,
+                    'data_labels': {'value': True}
+                })
+
+                # Around I50
+                xls_ws_statistics.insert_chart(49,8+i*20, chart_ips_by_version_top20)
 
             ip_dict_len = len(ip_dictionary)
             event_dict_len = len(event_dictionary)
@@ -578,6 +654,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             xls_ws_statistics_data.write_column(0, 4, is_detected_data[0])
             xls_ws_statistics_data.write_column(0, 5, is_detected_data[1])
 
+            xls_ws_statistics_data.write_column(2, 4, ip_version_occurs_data[0])
+            xls_ws_statistics_data.write_column(2, 5, ip_version_occurs_data[1])
+
             xls_ws_statistics_data.write_column(0, 6, ip_file_data[0])
             xls_ws_statistics_data.write_column(0, 7, ip_file_data[1])
 
@@ -591,8 +670,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             if not generateOnlyTop20:
                 chart_ips_width = int(round(float((480*(ip_dict_len-20))/20)))
                 chart_ips.add_series({
-                    'categories': ['Sheet4', 0, 0, ip_dict_len-20, 0],
-                    'values':     ['Sheet4', 0, 1, ip_dict_len-20, 1],
+                    'categories': [WS_NAME_STATISTICS_DATA, 0, 0, ip_dict_len-20, 0],
+                    'values':     [WS_NAME_STATISTICS_DATA, 0, 1, ip_dict_len-20, 1],
                     'gap': 100,
                     'data_labels': {'value': True}
                 })
@@ -604,16 +683,16 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 chart_ip_file_width = int(round(float((480*(ip_file_dict_len))/20)))
                 chart_ip_file_occur.set_size({'width': chart_ip_file_width})
                 chart_ip_file_occur.add_series({
-                    'categories': ['Sheet4', 0, 6, ip_file_dict_len-20, 6],
-                    'values':     ['Sheet4', 0, 7, ip_file_dict_len-20, 7],
+                    'categories': [WS_NAME_STATISTICS_DATA, 0, 6, ip_file_dict_len-20, 6],
+                    'values':     [WS_NAME_STATISTICS_DATA, 0, 7, ip_file_dict_len-20, 7],
                     'gap': 150,
                     'data_labels': {'value': True}
                 })
 
             # Only top 20
             chart_ips_top20.add_series({
-                'categories': ['Sheet4', ip_dict_len-20, 0, ip_dict_len, 0], #'=Sheet4!$A$' + (ip_dict_len-20) + ':$A$'+ip_dict_len,
-                'values':     ['Sheet4', ip_dict_len-20, 1, ip_dict_len, 1], #'=Sheet4!$B$' + (ip_dict_len-20) + ':$B$'+ip_dict_len,
+                'categories': [WS_NAME_STATISTICS_DATA, ip_dict_len-20, 0, ip_dict_len, 0], #'=Sheet4!$A$' + (ip_dict_len-20) + ':$A$'+ip_dict_len,
+                'values':     [WS_NAME_STATISTICS_DATA, ip_dict_len-20, 1, ip_dict_len, 1], #'=Sheet4!$B$' + (ip_dict_len-20) + ':$B$'+ip_dict_len,
                 'gap': 150,
                 'data_labels': {'value': True}
             })
@@ -623,23 +702,30 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             chart_ips_top20.set_size({'width': 960})
 
             chart_event_name.add_series({
-                'categories': ['Sheet4', 0, 2, event_dict_len, 2], 
-                'values':     ['Sheet4', 0, 3, event_dict_len, 3],
+                'categories': [WS_NAME_STATISTICS_DATA, 0, 2, event_dict_len, 2], 
+                'values':     [WS_NAME_STATISTICS_DATA, 0, 3, event_dict_len, 3],
                 'gap': 150,
                 'data_labels': {'value': True}
             })
 
             chart_is_detected.add_series({
                 # 'name': '',
-                'categories': ['Sheet4', 0, 4, 1, 4],
-                'values':     ['Sheet4', 0, 5, 1, 5]
+                'categories': [WS_NAME_STATISTICS_DATA, 0, 4, 1, 4],
+                'values':     [WS_NAME_STATISTICS_DATA, 0, 5, 1, 5],
+                'data_labels': {'value': True}
+            })
+
+            chart_ip_version_occurrences.add_series({
+                'categories': [WS_NAME_STATISTICS_DATA, 2, 4, 3, 4],
+                'values':     [WS_NAME_STATISTICS_DATA, 2, 5, 3, 5],
+                'data_labels': {'value': True}
             })
 
             # IP mentioned in 'x' files top20
             chart_ip_file_occur_top20.set_size({'width': 960})
             chart_ip_file_occur_top20.add_series({
-                'categories': ['Sheet4', ip_file_dict_len-20, 6, ip_file_dict_len, 6],
-                'values':     ['Sheet4', ip_file_dict_len-20, 7, ip_file_dict_len, 7],
+                'categories': [WS_NAME_STATISTICS_DATA, ip_file_dict_len-20, 6, ip_file_dict_len, 6],
+                'values':     [WS_NAME_STATISTICS_DATA, ip_file_dict_len-20, 7, ip_file_dict_len, 7],
                 'gap': 150,
                 'data_labels': {'value': True}
             })
@@ -654,7 +740,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             xls_ws_statistics.insert_chart('A50', chart_is_detected)
 
-            xls_ws_statistics.insert_chart('A75', chart_ip_file_occur_top20)
+            xls_ws_statistics.insert_chart('Q65', chart_ip_version_occurrences)
+
+            xls_ws_statistics.insert_chart('A65', chart_ip_file_occur_top20)
 
             if not generateOnlyTop20:
                 xls_ws_statistics.insert_chart('A20', chart_ips)
