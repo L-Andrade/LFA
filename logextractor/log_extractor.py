@@ -21,6 +21,7 @@ def extract_ip_addresses(path_to_file):
             occurrences = p_ipv4.findall(line)
             occurrences.extend(p_ipv6.findall(line))
             for ip in occurrences:
+                ip = ip.lower()
                 if my_dict.get(ip):
                     my_dict[ip] += 1
                 elif is_valid_ip(ip):
