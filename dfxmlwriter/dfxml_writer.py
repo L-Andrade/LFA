@@ -8,6 +8,7 @@ import traceback
 import datetime
 import platform
 import time
+import codecs
 
 import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
@@ -326,7 +327,7 @@ class DFXMLWriter:
             if(node.text =='POSITION_HOLDING_NODE'):
                 self.dfxml.remove(node)
 
-        self.write(open(fname, "w"))
+        self.write(codecs.open(fname, "w","utf-8"))
 
     # helper function do not call directly
     # some trickier stuff to get the user SID on windows systems or UID on *nix systems
