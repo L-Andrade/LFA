@@ -189,14 +189,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             self.log(Level.INFO, "Artifacts creation error, Log file IP ==> ")
             self.art_logged_ip = skCase.getArtifactType("TSK_LFA_LOG_FILE_IP")
 
-        # Create the attribute type Windows log, if it already exists, catch error
-        # If Yes, Log is in a Windows directory. If No, Log is in a normal directory
-        try:
-            self.att_windows_path = skCase.addArtifactAttributeType(
-                'TSK_LFA_WINDOWS_PATH', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Windows log")
-        except:
-            self.log(
-                Level.INFO, "Attributes Creation Error, Prefetch Windows Logs. ==> ")
 
         # Create the attribute type Log size, if it already exists, catch error
         # Log size shows the size of the file in bytes
@@ -298,7 +290,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             self.log(Level.INFO, "Error creating attribute IP Version")
 
         # Get Attributes after they are created
-        self.att_windows_path = skCase.getAttributeType("TSK_LFA_WINDOWS_PATH")
         self.att_log_size = skCase.getAttributeType("TSK_LFA_LOG_SIZE")
         self.att_created_time = skCase.getAttributeType("TSK_LFA_CREATED_TIME")
         self.att_access_time = skCase.getAttributeType("TSK_LFA_ACCESS_TIME")
@@ -384,11 +375,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
             # Make an artifact
             art = file.newArtifact(self.art_log_file.getTypeID())
-
-            # Register if file is in a Windows path
-            str_windows = "Yes" if "programdata\\microsoft\\windows\\wer" in file.getParentPath().lower() or "\\windows" in file.getParentPath().lower() else "No"
-            art.addAttribute(BlackboardAttribute(
-                self.att_windows_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str_windows))
 
             # Register log file size
             art.addAttribute(BlackboardAttribute(

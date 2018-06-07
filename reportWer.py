@@ -491,11 +491,13 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             with open(html_file_name_ips, "w") as outf:
                 outf.write(str(html_ips))
 
+            self.log(Level.INFO, "Saving HTML Report to: "+html_file_name)
             # Add the report to the Case, so it is shown in the tree
             Case.getCurrentCase().addReport(html_file_name, self.moduleName, "LFA HTML Report")
 
         if generateDFXML:
             dfxml.writeToFile(dfxml_path)
+            self.log(Level.INFO, "Saving DFXML Report to: "+dfxml_path)
 
             # Add the report to the Case, so it is shown in the tree
             Case.getCurrentCase().addReport(dfxml_path, self.moduleName, "LFA DFXML Report")
@@ -742,7 +744,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             xls_ws_statistics.insert_chart('Q65', chart_ip_version_occurrences)
 
-            xls_ws_statistics.insert_chart('A65', chart_ip_file_occur_top20)
+            xls_ws_statistics.insert_chart('A80', chart_ip_file_occur_top20)
 
             if not generateOnlyTop20:
                 xls_ws_statistics.insert_chart('A20', chart_ips)
@@ -750,6 +752,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 xls_ws_statistics.insert_chart('J50', chart_ip_file_occur)
 
             report_xls_wb.close()
+            self.log(Level.INFO, "Saving Excel Report to: "+xls_file_name)
+
             # Add the report to the Case, so it is shown in the tree
             Case.getCurrentCase().addReport(xls_file_name, self.moduleName, "LFA Excel Report")
 
