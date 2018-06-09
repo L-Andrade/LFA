@@ -744,12 +744,12 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             xls_ws_statistics.insert_chart('Q65', chart_ip_version_occurrences)
 
-            xls_ws_statistics.insert_chart('A80', chart_ip_file_occur_top20)
+            xls_ws_statistics.insert_chart('A65', chart_ip_file_occur_top20)
 
             if not generateOnlyTop20:
                 xls_ws_statistics.insert_chart('A20', chart_ips)
 
-                xls_ws_statistics.insert_chart('J50', chart_ip_file_occur)
+                xls_ws_statistics.insert_chart('A80', chart_ip_file_occur)
 
             report_xls_wb.close()
             self.log(Level.INFO, "Saving Excel Report to: "+xls_file_name)
