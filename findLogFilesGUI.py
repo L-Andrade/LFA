@@ -43,6 +43,8 @@ import os
 import logextractor
 import werExtractor
 import netaddr
+from urllib2 import urlopen
+import json
 
 from java.lang import System
 from java.util.logging import Level

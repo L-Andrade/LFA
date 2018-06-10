@@ -34,6 +34,8 @@ import inspect
 import bs4
 import xlsxwriter
 import datetime
+from urllib2 import urlopen
+import json
 
 from dfxmlwriter import dfxml_writer
 
@@ -393,16 +395,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 ip_dictionary[ip_address] += ip_counter
 
                 # Increment it in it's type dictionary
-                if ip_type == ip_type_arr_str[0]:
-                    array_ip_dicts_by_type[0][ip_address] += ip_counter
-                elif ip_type == ip_type_arr_str[1]:
-                    array_ip_dicts_by_type[1][ip_address] += ip_counter
-                elif ip_type == ip_type_arr_str[2]:
-                    array_ip_dicts_by_type[2][ip_address] += ip_counter
-                elif ip_type == ip_type_arr_str[3]:
-                    array_ip_dicts_by_type[3][ip_address] += ip_counter
-                elif ip_type == ip_type_arr_str[4]:
-                    array_ip_dicts_by_type[4][ip_address] += ip_counter
+                array_ip_dicts_by_type[ip_type_arr_str.index(ip_type)][ip_address] += ip_counter
+               
 
                 # Add it to it's version dictionary
                 if ip_version == ip_version_arr_str[0]:
@@ -417,17 +411,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 ip_dictionary[ip_address] = ip_counter
 
                 # Add it to it's type dictionary
-                if ip_type == ip_type_arr_str[0]:
-                    array_ip_dicts_by_type[0][ip_address] = ip_counter
-                elif ip_type == ip_type_arr_str[1]:
-                    array_ip_dicts_by_type[1][ip_address] = ip_counter
-                elif ip_type == ip_type_arr_str[2]:
-                    array_ip_dicts_by_type[2][ip_address] = ip_counter
-                elif ip_type == ip_type_arr_str[3]:
-                    array_ip_dicts_by_type[3][ip_address] = ip_counter
-                elif ip_type == ip_type_arr_str[4]:
-                    array_ip_dicts_by_type[4][ip_address] = ip_counter
-
+                array_ip_dicts_by_type[ip_type_arr_str.index(ip_type)][ip_address] = ip_counter
+               
                 # Add it to it's version dictionary
                 if ip_version == ip_version_arr_str[0]:
                     ipv4_occurrences += ip_counter
