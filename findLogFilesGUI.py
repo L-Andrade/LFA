@@ -44,7 +44,7 @@ import logextractor
 import werExtractor
 import netaddr
 from urllib2 import urlopen
-import json
+import time
 
 from java.lang import System
 from java.util.logging import Level
@@ -161,6 +161,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
     def startUp(self, context):
         # For statistics purposes
         self.filesFound = 0
+        self.start_time = time.time()
 
         # Get Sleuthkit case
         skCase = Case.getCurrentCase().getSleuthkitCase()
@@ -580,6 +581,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
     # Where any shutdown code is run and resources are freed.
     def shutDown(self):
+        elapsed_time = time.time() - self.start_time
+        self.log(Level.INFO, "LFA execution time: "+str(elapsed_time))
         # Inform user of number of files found
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                                               LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,

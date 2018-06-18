@@ -35,7 +35,7 @@ import bs4
 import xlsxwriter
 import datetime
 from urllib2 import urlopen
-import json
+import time
 
 from dfxmlwriter import dfxml_writer
 
@@ -153,6 +153,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
     #   See: http://sleuthkit.org/autopsy/docs/api-docs/4.4/classorg_1_1sleuthkit_1_1autopsy_1_1report_1_1_report_progress_panel.html
     def generateReport(self, baseReportDir, progressBar):
         self.log(Level.INFO, "Starting LFA report module")
+
+        # Count execution time
+        start_time = time.time()
 
         # Configure progress bar for 2 tasks
         progressBar.setIndeterminate(False)
@@ -741,6 +744,11 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             # Add the report to the Case, so it is shown in the tree
             Case.getCurrentCase().addReport(xls_file_name, self.moduleName, "LFA Excel Report")
+
+        # Elapsed time
+        elapsed_time = time.time() - start_time
+
+        self.log(Level.INFO, "Execution time: "+str(elapsed_time))
 
         # Call this with ERROR if report was not generated
         progressBar.complete(ReportStatus.COMPLETE)
