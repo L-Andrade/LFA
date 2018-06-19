@@ -155,7 +155,16 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             return "Link-local"
         if ip_addr.is_reserved():
             return "Reserved"
-        return "Public"          
+        return "Public"
+
+    def create_artifact(self, logDesc, art_name, art_desc, skCase):
+        try:
+            self.log(Level.INFO, logDesc)
+            return skCase.addBlackboardArtifactType(
+                art_name, art_desc)
+        except:
+            self.log(Level.INFO, "Artifacts creation error, type ==> " + art_desc)
+            return skCase.getArtifactType(art_name)
 
     # Where any setup and configuration is done
     def startUp(self, context):
@@ -167,31 +176,20 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         skCase = Case.getCurrentCase().getSleuthkitCase()
 
         # Create new artifact types
-        try:
-            self.log(Level.INFO, "Create new Artifact Log File")
-            self.art_log_file = skCase.addBlackboardArtifactType(
-                "TSK_LFA_LOG_FILES", "Log files")
-        except:
-            self.log(Level.INFO, "Artifacts creation error, Log file ==> ")
-            self.art_log_file = skCase.getArtifactType("TSK_LFA_LOG_FILES")
-
-        try:
-            self.log(Level.INFO, "Create new Artifact Reported Program")
-            self.art_reported_program = skCase.addBlackboardArtifactType(
-                "TSK_LFA_REPORTED_PROGRAMS", "Reported programs")
-        except:
-            self.log(Level.INFO, "Artifacts creation error, Reported program ==> ")
-            self.art_reported_program = skCase.getArtifactType(
-                "TSK_LFA_REPORTED_PROGRAMS")
-
-        try:
-            self.log(Level.INFO, "Create new Artifact Logged IP")
-            self.art_logged_ip = skCase.addBlackboardArtifactType(
-                "TSK_LFA_LOG_FILE_IP", "Logged IP addresses")
-        except:
-            self.log(Level.INFO, "Artifacts creation error, Log file IP ==> ")
-            self.art_logged_ip = skCase.getArtifactType("TSK_LFA_LOG_FILE_IP")
-
+        self.art_log_file = self.create_artifact(
+            "Create new Artifact Log File", "TSK_LFA_LOG_FILES", "Ad hoc log files", skCase)
+        self.art_reported_program = self.create_artifact(
+            "Create new Artifact Reported Programs", "TSK_LFA_REPORTED_PROGRAMS", "Reported programs", skCase)
+        self.art_logged_ip = self.create_artifact(
+            "Create new Artifact Logged IP", "TSK_LFA_LOG_FILE_IP", "Logged IP addresses", skCase)
+        self.art_etl_file = self.create_artifact(
+            "Create new Artifact ETL File", "TSK_LFA_ETL_FILES", "Event Trace Log files", skCase)
+        self.art_dmp_file = self.create_artifact(
+            "Create new Artifact Dmp File", "TSK_LFA_DMP_FILES", "Dmp files", skCase)
+        self.art_evt_file = self.create_artifact(
+            "Create new Artifact EVT File", "TSK_LFA_EVT_FILES", "EVT/EVTX files", skCase)
+        self.art_wer_file = self.create_artifact(
+            "Create new Artifact WER File", "TSK_LFA_WER_FILES", "WER files", skCase)
 
         # Create the attribute type Log size, if it already exists, catch error
         # Log size shows the size of the file in bytes
@@ -343,18 +341,28 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
         # Use blackboard class to index blackboard artifacts for keyword search
         blackboard = Case.getCurrentCase().getServices().getBlackboard()
-
+        file_name = file.getName().lower()
         # Is file of certain extension AND its checkbox is checked?
-        if ((file.getName().lower().endswith(".etl") and self.local_settings.getCheckETL()) or
-            ((file.getName().lower().endswith(".wer")) and self.local_settings.getCheckWER()) or
-            (file.getName().lower().endswith(".dmp") and self.local_settings.getCheckDmp()) or
-            (file.getName().lower().endswith(".evtx") and self.local_settings.getCheckEVTx()) or
-                (file.getName().lower().endswith(".log") and self.local_settings.getCheckLog())):
+        if ((file_name.endswith(".etl") and self.local_settings.getCheckETL()) or
+            ((file_name.endswith(".wer")) and self.local_settings.getCheckWER()) or
+            (file_name.endswith(".dmp") and self.local_settings.getCheckDmp()) or
+            (file_name.endswith(".evtx") and self.local_settings.getCheckEVTx()) or
+                (file_name.endswith(".log") and self.local_settings.getCheckLog())):
 
-            # Get all artifacts of TSK_LFA_LOG_FILE
+            # Get all file artifacts 
             skCase = Case.getCurrentCase().getSleuthkitCase()
-            artifact_list = skCase.getBlackboardArtifacts(
-                self.art_log_file.getTypeID())
+            #get one list at a time and append them 
+            werList = skCase.getBlackboardArtifacts(self.art_wer_file.getTypeID()) if skCase.getBlackboardArtifacts(self.art_wer_file.getTypeID()) is not None else []
+            dmpList = skCase.getBlackboardArtifacts(self.art_dmp_file.getTypeID()) if skCase.getBlackboardArtifacts(self.art_dmp_file.getTypeID()) is not None else []
+            evtList = skCase.getBlackboardArtifacts(self.art_evt_file.getTypeID()) if skCase.getBlackboardArtifacts(self.art_evt_file.getTypeID()) is not None else []
+            logList = skCase.getBlackboardArtifacts(self.art_log_file.getTypeID()) if skCase.getBlackboardArtifacts(self.art_log_file.getTypeID()) is not None else []
+            etlList = skCase.getBlackboardArtifacts(self.art_etl_file.getTypeID()) if skCase.getBlackboardArtifacts(self.art_etl_file.getTypeID()) is not None else []
+            werList.extend(dmpList)
+            werList.extend(evtList)
+            werList.extend(logList)
+            werList.extend(etlList)
+            artifact_list = werList
+
             file_path = file.getDataSource().getName() + file.getParentPath() + file.getName()
             for artifact in artifact_list:
                 # Check if file is already an artifact
@@ -364,20 +372,32 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     return IngestModule.ProcessResult.OK
 
             self.filesFound += 1
-
-            #########################################################################
-            #  _                                     _    _   __              _     #
-            # | |                       /\          | |  (_) / _|            | |    #
-            # | |      ___    __ _     /  \    _ __ | |_  _ | |_  __ _   ___ | |_   #
-            # | |     / _ \  / _` |   / /\ \  | '__|| __|| ||  _|/ _` | / __|| __|  #
-            # | |____| (_) || (_| |  / ____ \ | |   | |_ | || | | (_| || (__ | |_   #
-            # |______|\___/  \__, | /_/    \_\|_|    \__||_||_|  \__,_| \___| \__|  #
-            #                 __/ |                                                 #
-            #                |___/                                                  #
-            #########################################################################
+            
+            ########################################################
+            #       _ _    __ _ _        _                         #
+            #      | | |  / _(_) |      | |                        #
+            #  __ _| | | | |_ _| | ___  | |_ _   _ _ __   ___  ___ #
+            # / _` | | | |  _| | |/ _ \ | __| | | | '_ \ / _ \/ __|#
+            #| (_| | | | | | | | |  __/ | |_| |_| | |_) |  __/\__ \#
+            # \__,_|_|_| |_| |_|_|\___|  \__|\__, | .__/ \___||___/#
+            #                                 __/ | |              #
+            #                                |___/|_|              #
+            # ######################################################
+            
+            # workaround to sort in which artifact to be insterted
+            if(file_name.endswith(".wer")):
+                generic_art = self.art_wer_file
+            elif(file_name.endswith(".log")):
+                generic_art = self.art_log_file
+            elif(file_name.endswith(".dmp")):
+                generic_art = self.art_dmp_file
+            elif(file_name.endswith(".etl")):
+                generic_art = self.art_etl_file
+            elif(file_name.endswith(".evtx")):
+                generic_art = self.art_evt_file
 
             # Make an artifact
-            art = file.newArtifact(self.art_log_file.getTypeID())
+            art = file.newArtifact(generic_art.getTypeID())
 
             # Register log file size
             art.addAttribute(BlackboardAttribute(
@@ -410,7 +430,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             # Fire an event to notify the UI and others that there is a new log artifact
             IngestServices.getInstance().fireModuleDataEvent(
                 ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                                self.art_log_file, None))
+                                generic_art, None))
 
             #####################################################################################################
             #  _____                                                             _    _   __              _     #
@@ -423,7 +443,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             #                     |___/                                                                         #
             #####################################################################################################
 
-            if file.getName().lower().endswith(".wer"):
+            if file_name.endswith(".wer"):
                 # Save the file locally in the temp folder and use file id as name to reduce collisions
                 self.temp_wer_path = os.path.join(
                     self.temp_dir + WER_FOLDER_PATH, str(file.getId()))
@@ -514,7 +534,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             #               |___/                           #
             #################################################
 
-            if file.getName().lower().endswith(".log"):
+            if file_name.endswith(".log"):
                 # Save the file locally in the temp folder and use file id as name to reduce collisions
                 self.temp_log_path = os.path.join(
                     self.temp_dir + LOG_FOLDER_PATH, str(file.getId()))
@@ -542,21 +562,26 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 for (ip, counter) in log_info.iteritems():
                     # Create artifact
                     ip_art = file.newArtifact(self.art_logged_ip.getTypeID())
-                    self.log(Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
+                    self.log(
+                        Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
 
                     # Add IP type
                     ip_type = self.get_ip_type(ip)
-                    ip_art.addAttribute(BlackboardAttribute(self.att_ip_type, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_type))
+                    ip_art.addAttribute(BlackboardAttribute(
+                        self.att_ip_type, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_type))
 
                     # Add IP version
                     ip_version = "IPv" + str(netaddr.IPAddress(ip).version)
-                    ip_art.addAttribute(BlackboardAttribute(self.att_ip_version, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_version))
+                    ip_art.addAttribute(BlackboardAttribute(
+                        self.att_ip_version, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_version))
 
                     # Add IP to artifact
-                    ip_art.addAttribute(BlackboardAttribute(self.att_ip_address, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(ip)))
+                    ip_art.addAttribute(BlackboardAttribute(
+                        self.att_ip_address, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(ip)))
 
                     # Add counter to artifact
-                    ip_art.addAttribute(BlackboardAttribute(self.att_ip_counter, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(counter)))
+                    ip_art.addAttribute(BlackboardAttribute(
+                        self.att_ip_counter, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(counter)))
 
                     # Add file path to artifact
                     ip_art.addAttribute(BlackboardAttribute(
@@ -591,6 +616,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
 # Stores the settings that can be changed for each ingest job
 # All fields in here must be serializable.  It will be written to disk.
+
+
 class LogForensicsForAutopsyFileIngestModuleWithUISettings(IngestModuleIngestJobSettings):
     serialVersionUID = 1L
 
@@ -631,6 +658,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettings(IngestModuleIngestJob
         self.checkEVTx = checkEVTx
 
 # UI that is shown to user for each ingest job so they can configure the job.
+
+
 class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Note, we can't use a self.settings instance variable.
     # Rather, self.local_settings is used.
