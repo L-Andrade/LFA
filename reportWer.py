@@ -104,7 +104,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             dfxml_src = dfxml.generateSource(artifact.getDataSource().getName())
 
             source_file = skCase.getAbstractFileById(artifact.getObjectID())
-            vol = dfxml.generateVolume('512')
             filename, file_extension = os.path.splitext(source_file.getName())
 
             fo = dfxml.newFileObject({
@@ -115,7 +114,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 'atime': datetime.datetime.fromtimestamp(source_file.getAtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'),
                 'crtime': datetime.datetime.fromtimestamp(source_file.getCrtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'),
 
-            }, vol)
+            })
             md5 = source_file.getMd5Hash() 
             if md5 is not None:
                 dfxml.addHashDigestToFO(fo, ['MD5',md5])
