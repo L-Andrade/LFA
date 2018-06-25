@@ -581,7 +581,10 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
                     # Add current domain
                     if(ip_type == 'Public'):
-                        ip_domain  = socket.gethostbyaddr(ip)[0]
+                        try:
+                            ip_domain  = socket.gethostbyaddr(ip)[0]
+                        except socket.herror as e:
+                            ip_domain = 'Error: ' + str(e)
                     else:
                         ip_domain = 'N/A'
                     ip_art.addAttribute(BlackboardAttribute(
@@ -719,6 +722,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.labelCheckText = JLabel("Check for type files: ")
         self.labelCheckText.setEnabled(True)
         self.errorMessageLabel = JLabel(" ")
+        self.infoMessageLabel = JLabel("Checking for domain needs internet access (.log IP addresses)")
+        self.infoMessageLabel.setEnabled(True)
         self.errorMessageLabel.setEnabled(True)
 
         self.checkboxWER = JCheckBox(
@@ -739,6 +744,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.add(self.checkboxDmp)
         self.add(self.checkboxEVTx)
         self.add(self.errorMessageLabel)
+        self.add(self.infoMessageLabel)
 
     def customizeComponents(self):
         self.checkDatabaseEntries()
