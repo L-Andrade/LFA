@@ -45,6 +45,7 @@ import werExtractor
 import netaddr
 from urllib2 import urlopen
 import time
+import socket
 
 from java.lang import System
 from java.util.logging import Level
@@ -283,12 +284,19 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute IP type")
 
-        # Create the attribute type IP version, which says if the IP is public or private
+        # Create the attribute type IP version, which says if the IP is ipv4 or ipv6
         try:
             self.att_ip_version = skCase.addArtifactAttributeType(
                 'TSK_LFA_IP_VERSION', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Version")
         except:
             self.log(Level.INFO, "Error creating attribute IP Version")
+
+        # Create the attribute type IP version, which says if possible the ip's current domain
+        try:
+            self.att_ip_domain = skCase.addArtifactAttributeType(
+                'TSK_LFA_IP_DOMAIN', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Domain")
+        except:
+            self.log(Level.INFO, "Error creating attribute IP Domain")
 
         # Get Attributes after they are created
         self.att_log_size = skCase.getAttributeType("TSK_LFA_LOG_SIZE")
@@ -307,6 +315,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.att_ip_counter = skCase.getAttributeType("TSK_LFA_IP_COUNTER")
         self.att_ip_type = skCase.getAttributeType("TSK_LFA_IP_TYPE")
         self.att_ip_version = skCase.getAttributeType("TSK_LFA_IP_VERSION")
+        self.att_ip_domain = skCase.getAttributeType("TSK_LFA_IP_DOMAIN")
 
         self.temp_dir = Case.getCurrentCase().getTempDirectory()
 
@@ -570,6 +579,13 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     ip_art.addAttribute(BlackboardAttribute(
                         self.att_ip_type, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_type))
 
+                    # Add current domain
+                    if(ip_type == 'Public'):
+                        ip_domain  = socket.gethostbyaddr(ip)[0]
+                    else:
+                        ip_domain = 'N/A'
+                    ip_art.addAttribute(BlackboardAttribute(
+                        self.att_ip_domain, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_domain))
                     # Add IP version
                     ip_version = "IPv" + str(netaddr.IPAddress(ip).version)
                     ip_art.addAttribute(BlackboardAttribute(

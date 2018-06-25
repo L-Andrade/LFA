@@ -56,7 +56,7 @@ from javax.swing import JLabel
 from javax.swing import BoxLayout
 
 XLS_REPORTED_HEADER_COUNT = 6
-XLS_IPS_HEADER_COUNT = 5
+XLS_IPS_HEADER_COUNT = 6
 WS_NAME_STATISTICS = 'Statistics'
 WS_NAME_STATISTICS_DATA = 'Raw data'
 WS_NAME_REPORTED_PROGRAMS = 'Reported programs'
@@ -106,15 +106,12 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             source_file = skCase.getAbstractFileById(artifact.getObjectID())
             filename, file_extension = os.path.splitext(source_file.getName())
 
-            fo = dfxml.newFileObject({
-                'filename': filename+file_extension,
-                'filesize': str(source_file.getSize()),
-                'mtime': datetime.datetime.fromtimestamp(source_file.getMtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'),
-                'ctime': datetime.datetime.fromtimestamp(source_file.getCtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'),
-                'atime': datetime.datetime.fromtimestamp(source_file.getAtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'),
-                'crtime': datetime.datetime.fromtimestamp(source_file.getCrtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'),
-
-            })
+            fo = dfxml.newFileObject({'filename': filename+file_extension})
+            dfxml.addParamsToNode(fo, 'mtime', datetime.datetime.fromtimestamp(source_file.getMtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
+            dfxml.addParamsToNode(fo, 'ctime', datetime.datetime.fromtimestamp(source_file.getCtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
+            dfxml.addParamsToNode(fo, 'atime', datetime.datetime.fromtimestamp(source_file.getAtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
+            dfxml.addParamsToNode(fo, 'crtime', datetime.datetime.fromtimestamp(source_file.getCrtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
+            
             md5 = source_file.getMd5Hash() 
             if md5 is not None:
                 dfxml.addHashDigestToFO(fo, ['MD5',md5])
@@ -246,6 +243,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         att_ip_log_path = skCase.getAttributeType("TSK_LFA_CASE_FILE_PATH")
         att_ip_type = skCase.getAttributeType("TSK_LFA_IP_TYPE")
         att_ip_version = skCase.getAttributeType("TSK_LFA_IP_VERSION")
+        att_ip_domain = skCase.getAttributeType("TSK_LFA_IP_DOMAIN")
         att_event_name = skCase.getAttributeType("TSK_LFA_EVENT_NAME")
         att_reported_app_path = skCase.getAttributeType("TSK_LFA_APP_PATH")
 
@@ -443,6 +441,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             xls_ws_logged_ips.add_table(0,0,xls_row_count-1,XLS_IPS_HEADER_COUNT-1, 
                                             {'columns':[
                                                 {'header': 'Type'},
+                                                {'header': 'Domain'},
                                                 {'header': 'Version'},
                                                 {'header': 'IP Address'},
                                                 {'header': 'Occurrences'},

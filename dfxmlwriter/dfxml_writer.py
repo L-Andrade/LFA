@@ -48,6 +48,8 @@ class DFXMLWriter:
             if(self.dfxml.find('rusage')):
                 return cNodes.index(self.dfxml.findall('rusage')[-1]) + 1
             return cNodes.index(self.dfxml.findall('fileobject')[-1]) + 1 
+        if(node_tag == 'fileobject'):
+            return cNodes.index(self.dfxml.findall('fileobject')[-1]) +1
 
 
     def prettify(self, elem):
