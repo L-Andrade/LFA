@@ -43,7 +43,6 @@ import os
 import logextractor
 import werExtractor
 import netaddr
-from urllib2 import urlopen
 import time
 import socket
 
@@ -51,7 +50,17 @@ from java.lang import System
 from java.util.logging import Level
 from javax.swing import JCheckBox
 from javax.swing import BoxLayout
+from java.awt import GridBagLayout
+from java.awt import FlowLayout
+from java.awt import GridBagConstraints
 from javax.swing import JLabel
+from javax.swing import JPanel
+from javax.swing import JComponent
+from javax.swing import JTextField
+from javax.swing import JButton
+from javax.swing import JList
+from javax.swing import JScrollPane
+from javax.swing import DefaultListModel
 from java.lang import Class
 from java.lang import System
 from java.io import File
@@ -291,12 +300,19 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute IP Version")
 
-        # Create the attribute type IP version, which says if possible the ip's current domain
+        # Create the attribute type IP domain, which says IP's current domain (if possible)
         try:
             self.att_ip_domain = skCase.addArtifactAttributeType(
                 'TSK_LFA_IP_DOMAIN', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Domain")
         except:
             self.log(Level.INFO, "Error creating attribute IP Domain")
+
+        # Create the attribute type Windows version, which says the Windows version of the image at the time of report
+        try:
+            self.att_windows_ver = skCase.addArtifactAttributeType(
+                'TSK_LFA_WINDOWS_VERSION', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Windows version")
+        except:
+            self.log(Level.INFO, "Error creating attribute Windows version")
 
         # Get Attributes after they are created
         self.att_log_size = skCase.getAttributeType("TSK_LFA_LOG_SIZE")
@@ -316,6 +332,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.att_ip_type = skCase.getAttributeType("TSK_LFA_IP_TYPE")
         self.att_ip_version = skCase.getAttributeType("TSK_LFA_IP_VERSION")
         self.att_ip_domain = skCase.getAttributeType("TSK_LFA_IP_DOMAIN")
+        self.att_windows_ver = skCase.getAttributeType("TSK_LFA_WINDOWS_VERSION")
 
         self.temp_dir = Case.getCurrentCase().getTempDirectory()
 
@@ -486,21 +503,17 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
                 reported_art.addAttribute(BlackboardAttribute(
                     self.att_event_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['FriendlyEventName'])))
-                self.log(
-                    Level.INFO, "Copying 2nd att for .wer file of id " + str(file.getId()))
 
                 reported_art.addAttribute(BlackboardAttribute(
                     self.att_event_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['EventTime'])))
-                self.log(
-                    Level.INFO, "Copying 3rd att for .wer file of id " + str(file.getId()))
 
                 reported_art.addAttribute(BlackboardAttribute(
                     self.att_app_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['AppPath'])))
-                self.log(
-                    Level.INFO, "Copying 4th att for .wer file of id " + str(file.getId()))
 
-                # adding dump file search result
+                reported_art.addAttribute(BlackboardAttribute(
+                    self.att_windows_ver, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['WindowsVersion'])))
 
+                # Adding dump file search result
                 dmp = werExtractor.wer_extractor.find_dmp_files(
                     self.temp_wer_path)
                 self.log(
@@ -565,7 +578,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         Level.INFO, "ERROR: " + error + " at file of id: " + str(file.getId()))
                     return IngestModule.ProcessResult.OK
 
-                # A standard log can have multiple artifacts
+                # An ad hoc log can have multiple artifacts
                 # As long as it has more than one IP address registered
                 # So let's iterate over the dictionary
                 for (ip, counter) in log_info.iteritems():
@@ -706,6 +719,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
 
     def checkBoxEventLog(self, event):
         self.local_settings.setCheckLog(self.checkboxLog.isSelected())
+        self.labelAddRegex.setEnabled(self.checkboxLog.isSelected())
         self.saveFlagSetting("checkLog", self.checkboxLog.isSelected())
 
     def checkBoxEventDmp(self, event):
@@ -716,35 +730,89 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.local_settings.setCheckEVTx(self.checkboxEVTx.isSelected())
         self.saveFlagSetting("checkEVTx", self.checkboxEVTx.isSelected())
 
+    def addRegexToList(self, event):
+        pass
+
+    def removeRegexFromList(self, event):
+        pass
+
+    def saveRegexToDB(self, event):
+        pass
+
+    def clearList(self, event):
+        pass
+
     def initComponents(self):
         self.setLayout(BoxLayout(self, BoxLayout.Y_AXIS))
+        self.setAlignmentX(JComponent.LEFT_ALIGNMENT)
+
+        panelFiles = JPanel()
+        panelFiles.setLayout(BoxLayout(panelFiles, BoxLayout.X_AXIS))
+        panelFiles.setAlignmentX(JComponent.LEFT_ALIGNMENT)
+
+        panelAddRegex = JPanel()
+        panelAddRegex.setLayout(GridBagLayout())
+        gbc = GridBagConstraints()
+        panelAddRegex.setAlignmentX(JComponent.LEFT_ALIGNMENT)
+
 
         self.labelCheckText = JLabel("Check for type files: ")
+        self.labelAddRegex = JLabel("Add RegEx to .log files: ")
+        self.labelErrorMessage = JLabel(" ")
+        self.labelInfoMessage = JLabel("Checking for domain needs internet access (.log IP addresses)")
         self.labelCheckText.setEnabled(True)
-        self.errorMessageLabel = JLabel(" ")
-        self.infoMessageLabel = JLabel("Checking for domain needs internet access (.log IP addresses)")
-        self.infoMessageLabel.setEnabled(True)
-        self.errorMessageLabel.setEnabled(True)
+        self.labelInfoMessage.setEnabled(True)
+        self.labelErrorMessage.setEnabled(True)
+        self.labelAddRegex.setEnabled(True)
 
-        self.checkboxWER = JCheckBox(
-            "WER", actionPerformed=self.checkBoxEventWER)
-        self.checkboxETL = JCheckBox(
-            "ETL", actionPerformed=self.checkBoxEventETL)
-        self.checkboxLog = JCheckBox(
-            "Log", actionPerformed=self.checkBoxEventLog)
-        self.checkboxEVTx = JCheckBox(
-            "EVTx", actionPerformed=self.checkBoxEventEVTx)
-        self.checkboxDmp = JCheckBox(
-            "Dmp", actionPerformed=self.checkBoxEventDmp)
+        self.checkboxWER = JCheckBox("WER", actionPerformed=self.checkBoxEventWER)
+        self.checkboxETL = JCheckBox("ETL", actionPerformed=self.checkBoxEventETL)
+        self.checkboxLog = JCheckBox("Log", actionPerformed=self.checkBoxEventLog)
+        self.checkboxEVTx = JCheckBox("EVTx", actionPerformed=self.checkBoxEventEVTx)
+        self.checkboxDmp = JCheckBox("Dmp", actionPerformed=self.checkBoxEventDmp)
+
+        self.buttonAddRegex = JButton("Add", actionPerformed=self.addRegexToList)
+        self.buttonRemoveRegex = JButton("Remove", actionPerformed=self.removeRegexFromList)
+        self.buttonClearRegex = JButton("Clear", actionPerformed=self.clearList)
+        self.buttonSaveRegex = JButton("Save", actionPerformed=self.saveRegexToDB)
+        self.buttonAddRegex.setEnabled(True)
+
+        self.textFieldRegex = JTextField(15)
+
+        # self.defaultListModelRegex = DefaultListModel()
+
+        self.listRegex = JList()
+        self.listRegex.setVisibleRowCount(3)
+        self.scrollPaneListRegex = JScrollPane(self.listRegex) 
 
         self.add(self.labelCheckText)
-        self.add(self.checkboxWER)
-        self.add(self.checkboxETL)
-        self.add(self.checkboxLog)
-        self.add(self.checkboxDmp)
-        self.add(self.checkboxEVTx)
-        self.add(self.errorMessageLabel)
-        self.add(self.infoMessageLabel)
+        panelFiles.add(self.checkboxWER)
+        panelFiles.add(self.checkboxETL)
+        panelFiles.add(self.checkboxLog)
+        panelFiles.add(self.checkboxDmp)
+        panelFiles.add(self.checkboxEVTx)
+        self.add(panelFiles)
+        self.add(self.labelErrorMessage)
+        self.add(self.labelInfoMessage)
+        panelAddRegex.add(self.labelAddRegex,gbc)
+        panelAddRegex.add(self.textFieldRegex,gbc)
+        panelAddRegex.add(self.buttonAddRegex,gbc)
+        gbc.fill = GridBagConstraints.HORIZONTAL
+        gbc.ipady = 40
+        gbc.weightx = 0.0
+        gbc.gridwidth = 3
+        gbc.gridx = 0
+        gbc.gridy = 1
+        panelAddRegex.add(self.scrollPaneListRegex,gbc)
+        gbc.ipady = 0
+        gbc.gridwidth = 1
+        gbc.gridy = 2
+        panelAddRegex.add(self.buttonRemoveRegex,gbc)
+        gbc.gridx = 1
+        panelAddRegex.add(self.buttonClearRegex,gbc)
+        gbc.gridx = 2
+        panelAddRegex.add(self.buttonSaveRegex,gbc)
+        self.add(panelAddRegex)
 
     def customizeComponents(self):
         self.checkDatabaseEntries()
@@ -762,7 +830,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
             dbConn = DriverManager.getConnection(
                 "jdbc:sqlite:%s" % settings_db)
         except SQLException as e:
-            self.errorMessageLabel.setText("Error opening database!")
+            self.labelErrorMessage.setText("Error opening database!")
 
         try:
             stmt = dbConn.createStatement()
@@ -789,9 +857,9 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
                     (resultSet.getInt("checkLog") > 0))
                 self.checkboxLog.setSelected(
                     (resultSet.getInt("checkLog") > 0))
-            self.errorMessageLabel.setText("Settings read successfully!")
+            self.labelErrorMessage.setText("Settings read successfully!")
         except SQLException as e:
-            self.errorMessageLabel.setText("Could not read settings")
+            self.labelErrorMessage.setText("Could not read settings")
 
         stmt.close()
         dbConn.close()
@@ -806,7 +874,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
             dbConn = DriverManager.getConnection(
                 "jdbc:sqlite:%s" % settings_db)
         except SQLException as e:
-            self.errorMessageLabel.setText("Error opening settings")
+            self.labelErrorMessage.setText("Error opening settings")
 
         int_value = 1 if value else 0
 
@@ -816,8 +884,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
                 ' = ' + str(int_value) + ' WHERE id = 1;'
 
             stmt.executeUpdate(query)
-            self.errorMessageLabel.setText("Saved setting")
+            self.labelErrorMessage.setText("Saved setting")
         except SQLException as e:
-            self.errorMessageLabel.setText("Error saving settings "+str(e))
+            self.labelErrorMessage.setText("Error saving settings "+str(e))
         stmt.close()
         dbConn.close()

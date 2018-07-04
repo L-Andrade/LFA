@@ -333,6 +333,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                                                 {'header': 'Event'},
                                                 {'header': 'Time of report'},
                                                 {'header': 'Path to program'},
+                                                {'header': 'Windows version'},
                                                 {'header': 'Dump files'},
                                                 {'header': 'Is detected'}
                                             ]})

@@ -14,13 +14,13 @@ HUNDREDS_OF_NANOSECONDS = 10000000
 
 def is_file_wer(pathToFile):
     try:
-            f = codecs.open(os.path.join(pathToFile),
-                            'r', encoding='utf-16le')
-            line_one = f.readline()
-            line_two = f.readline()
-            f.close()
-            if('Version=' in line_one or 'EventType=' in line_two):
-                return True
+        f = codecs.open(os.path.join(pathToFile),
+                        'r', encoding='utf-16le')
+        line_one = f.readline()
+        line_two = f.readline()
+        f.close()
+        if('Version=' in line_one or 'EventType=' in line_two):
+            return True
     except:
         return False
     return False
@@ -50,8 +50,11 @@ def extract_default_keys(pathToFile):
     except:
         return{'Error': 'key does not exist in file'}
 
+    res['WindowsVersion'] = extract_windows_key(pathToFile)
     return res
 
+def extract_windows_key(pathToFile):
+    return extract_specific_array_key(pathToFile, "OsInfo", "osver")
 
 def extract_specific_key(pathToFile, key):
     lines = _read_file_lines(pathToFile)
@@ -60,6 +63,19 @@ def extract_specific_key(pathToFile, key):
             sLines = line.split("=")
             if sLines[0] == key:
                 return sLines[1]
+        return {'Error': 'key does not exist in file'}
+    except:
+        return {'Error': 'unable to parse file'}
+
+def extract_specific_array_key(pathToFile, array, key):
+    lines = _read_file_lines(pathToFile)
+    try:
+        for i in xrange(0,len(lines)):
+            splited_line = lines[i].split("=")
+            if array in splited_line[0] and ".Key" in splited_line[0]:
+                if splited_line[1] == key:
+                    value_splited_line = lines[i+1].split("=")
+                    return value_splited_line[1]
         return {'Error': 'key does not exist in file'}
     except:
         return {'Error': 'unable to parse file'}
