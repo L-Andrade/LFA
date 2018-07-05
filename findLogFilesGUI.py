@@ -671,6 +671,12 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettings(IngestModuleIngestJob
     def setCheckETL(self, checkETL):
         self.checkETL = checkETL
 
+    def getCheckLogIPs(self):
+        return self.checkLogIPs
+
+    def setCheckLogIPs(self, checkLogIPs):
+        self.checkLogIPs = checkLogIPs
+
     def getCheckLog(self):
         return self.checkLog
 
@@ -719,7 +725,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
 
     def checkBoxEventLog(self, event):
         self.local_settings.setCheckLog(self.checkboxLog.isSelected())
-        self.labelAddRegex.setEnabled(self.checkboxLog.isSelected())
+        self.panelAddRegex.setVisible(self.checkboxLog.isSelected())
         self.saveFlagSetting("checkLog", self.checkboxLog.isSelected())
 
     def checkBoxEventDmp(self, event):
@@ -730,34 +736,61 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.local_settings.setCheckEVTx(self.checkboxEVTx.isSelected())
         self.saveFlagSetting("checkEVTx", self.checkboxEVTx.isSelected())
 
+    def checkBoxEventLogIPs(self, event):
+        self.local_settings.setCheckLogIPs(self.checkboxLogIPs.isSelected())
+        self.saveFlagSetting("checkLogIPs", self.checkboxLogIPs.isSelected())
+
+    def updateRegexList(self):
+        self.listRegex.setListData(self.regex_list)
+
     def addRegexToList(self, event):
-        pass
+        regex = Regex(self.textFieldRegexName.getText(), self.textFieldRegex.getText())
+        self.regex_list.addElement(regex)
+        self.textFieldRegex.setText("")
+        self.textFieldRegexName.setText("")
 
     def removeRegexFromList(self, event):
-        pass
+        regex = self.listRegex.getSelectedValue()
+        self.regex_list.removeElement(regex)
 
-    def saveRegexToDB(self, event):
-        pass
+    def saveRegexesToDB(self, event):
+        self.saveRegexes()
 
     def clearList(self, event):
-        pass
+        self.regex_list.clear()
+
+    def activateRegex(self, event):
+        regex = self.listRegex.getSelectedValue()
+        regex.active = not regex.active
+        # self.updateRegexList()
 
     def initComponents(self):
         self.setLayout(BoxLayout(self, BoxLayout.Y_AXIS))
         self.setAlignmentX(JComponent.LEFT_ALIGNMENT)
+        self.regex_list = DefaultListModel()
 
         panelFiles = JPanel()
         panelFiles.setLayout(BoxLayout(panelFiles, BoxLayout.X_AXIS))
         panelFiles.setAlignmentX(JComponent.LEFT_ALIGNMENT)
 
-        panelAddRegex = JPanel()
-        panelAddRegex.setLayout(GridBagLayout())
+        panelRegexes = JPanel()
+        panelRegexes.setLayout(BoxLayout(panelRegexes, BoxLayout.X_AXIS))
+        panelRegexes.setAlignmentX(JComponent.LEFT_ALIGNMENT)
+
+        panelRegexesButtons = JPanel()
+        panelRegexesButtons.setLayout(BoxLayout(panelRegexesButtons, BoxLayout.X_AXIS))
+        panelRegexesButtons.setAlignmentX(JComponent.LEFT_ALIGNMENT)
+
+        self.panelAddRegex = JPanel()
+        self.panelAddRegex.setLayout(GridBagLayout())
         gbc = GridBagConstraints()
-        panelAddRegex.setAlignmentX(JComponent.LEFT_ALIGNMENT)
+        self.panelAddRegex.setAlignmentX(JComponent.LEFT_ALIGNMENT)
 
 
         self.labelCheckText = JLabel("Check for type files: ")
         self.labelAddRegex = JLabel("Add RegEx to .log files: ")
+        self.labelAddRegexName = JLabel("Name: ")
+        self.labelAddRegexRegex = JLabel(" RegEx: ")
         self.labelErrorMessage = JLabel(" ")
         self.labelInfoMessage = JLabel("Checking for domain needs internet access (.log IP addresses)")
         self.labelCheckText.setEnabled(True)
@@ -770,19 +803,20 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.checkboxLog = JCheckBox("Log", actionPerformed=self.checkBoxEventLog)
         self.checkboxEVTx = JCheckBox("EVTx", actionPerformed=self.checkBoxEventEVTx)
         self.checkboxDmp = JCheckBox("Dmp", actionPerformed=self.checkBoxEventDmp)
+        self.checkboxLogIPs = JCheckBox("Check .log IPs", actionPerformed=self.checkBoxEventLogIPs)
 
         self.buttonAddRegex = JButton("Add", actionPerformed=self.addRegexToList)
         self.buttonRemoveRegex = JButton("Remove", actionPerformed=self.removeRegexFromList)
+        self.buttonActivateRegex = JButton("(De) Activate", actionPerformed=self.activateRegex)
         self.buttonClearRegex = JButton("Clear", actionPerformed=self.clearList)
-        self.buttonSaveRegex = JButton("Save", actionPerformed=self.saveRegexToDB)
+        self.buttonSaveRegexes = JButton("Save", actionPerformed=self.saveRegexesToDB)
         self.buttonAddRegex.setEnabled(True)
 
         self.textFieldRegex = JTextField(15)
+        self.textFieldRegexName = JTextField(5)
 
-        # self.defaultListModelRegex = DefaultListModel()
-
-        self.listRegex = JList()
-        self.listRegex.setVisibleRowCount(3)
+        self.listRegex = JList(self.regex_list)
+        # self.listRegex.setVisibleRowCount(3)
         self.scrollPaneListRegex = JScrollPane(self.listRegex) 
 
         self.add(self.labelCheckText)
@@ -792,30 +826,35 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         panelFiles.add(self.checkboxDmp)
         panelFiles.add(self.checkboxEVTx)
         self.add(panelFiles)
-        self.add(self.labelErrorMessage)
+        self.add(self.checkboxLogIPs)
         self.add(self.labelInfoMessage)
-        panelAddRegex.add(self.labelAddRegex,gbc)
-        panelAddRegex.add(self.textFieldRegex,gbc)
-        panelAddRegex.add(self.buttonAddRegex,gbc)
         gbc.fill = GridBagConstraints.HORIZONTAL
-        gbc.ipady = 40
-        gbc.weightx = 0.0
-        gbc.gridwidth = 3
-        gbc.gridx = 0
-        gbc.gridy = 1
-        panelAddRegex.add(self.scrollPaneListRegex,gbc)
-        gbc.ipady = 0
-        gbc.gridwidth = 1
+        self.panelAddRegex.add(self.labelAddRegex,gbc)
+        panelRegexes.add(self.labelAddRegexName)
+        panelRegexes.add(self.textFieldRegexName)
+        panelRegexes.add(self.labelAddRegexRegex)
+        panelRegexes.add(self.textFieldRegex)
+        panelRegexes.add(self.buttonAddRegex)
         gbc.gridy = 2
-        panelAddRegex.add(self.buttonRemoveRegex,gbc)
-        gbc.gridx = 1
-        panelAddRegex.add(self.buttonClearRegex,gbc)
-        gbc.gridx = 2
-        panelAddRegex.add(self.buttonSaveRegex,gbc)
-        self.add(panelAddRegex)
+        self.panelAddRegex.add(panelRegexes,gbc)
+        gbc.gridy = 3
+        self.panelAddRegex.add(self.scrollPaneListRegex, gbc)
+        panelRegexesButtons.add(self.buttonRemoveRegex)
+        panelRegexesButtons.add(self.buttonClearRegex)
+        panelRegexesButtons.add(self.buttonSaveRegexes)
+        panelRegexesButtons.add(self.buttonActivateRegex)
+        gbc.gridy = 4
+        self.panelAddRegex.add(panelRegexesButtons,gbc)
+        self.add(self.panelAddRegex)
+
+        self.add(self.labelErrorMessage)
+        # Get UI values from database
+        self.checkDatabaseEntries()
+        self.panelAddRegex.setVisible(self.checkboxLog.isSelected())
 
     def customizeComponents(self):
-        self.checkDatabaseEntries()
+        # self.checkDatabaseEntries()
+        pass
 
     # Return the settings used
     def getSettings(self):
@@ -834,7 +873,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
 
         try:
             stmt = dbConn.createStatement()
-            query = 'SELECT * FROM settings WHERE id = 1;'
+            query = 'SELECT * FROM settings WHERE id = 2;'
             resultSet = stmt.executeQuery(query)
             while resultSet.next():
                 self.local_settings.setCheckWER(
@@ -857,16 +896,24 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
                     (resultSet.getInt("checkLog") > 0))
                 self.checkboxLog.setSelected(
                     (resultSet.getInt("checkLog") > 0))
+                self.local_settings.setCheckLogIPs(
+                    (resultSet.getInt("checkLogIPs") > 0))
+                self.checkboxLogIPs.setSelected(
+                    (resultSet.getInt("checkLogIPs") > 0))
+            query = 'SELECT * FROM regexes;'
+            resultSet = stmt.executeQuery(query)
+            while resultSet.next():
+                regex = Regex(resultSet.getString("name"), resultSet.getString("regex"), resultSet.getInt("active")>0)
+                self.regex_list.addElement(regex)
             self.labelErrorMessage.setText("Settings read successfully!")
         except SQLException as e:
-            self.labelErrorMessage.setText("Could not read settings")
+            self.labelErrorMessage.setText("Could not read settings: "+str(e))
 
         stmt.close()
         dbConn.close()
 
     # Save ONE log flag
     def saveFlagSetting(self, flag, value):
-
         head, tail = os.path.split(os.path.abspath(__file__))
         settings_db = head + DB_PATH
         try:
@@ -881,7 +928,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         try:
             stmt = dbConn.createStatement()
             query = 'UPDATE settings SET ' + flag + \
-                ' = ' + str(int_value) + ' WHERE id = 1;'
+                ' = ' + str(int_value) + ' WHERE id = 2;'
 
             stmt.executeUpdate(query)
             self.labelErrorMessage.setText("Saved setting")
@@ -889,3 +936,49 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
             self.labelErrorMessage.setText("Error saving settings "+str(e))
         stmt.close()
         dbConn.close()
+
+    def saveRegexes(self):
+        head, tail = os.path.split(os.path.abspath(__file__))
+        settings_db = head + DB_PATH
+        try:
+            Class.forName("org.sqlite.JDBC").newInstance()
+            dbConn = DriverManager.getConnection(
+                "jdbc:sqlite:%s" % settings_db)
+        except SQLException as e:
+            self.labelErrorMessage.setText("Error opening regexes")
+
+        try:
+            stmt = dbConn.createStatement()
+            query = 'DELETE FROM regexes;'
+            stmt.executeUpdate(query)
+        except SQLException as e:
+            self.labelErrorMessage.setText("Error saving settings "+str(e))
+        try:
+            sql = "INSERT INTO regexes (name, regex, active) values (?, ?, ?)";
+            preparedStmt = dbConn.prepareStatement(sql)
+            for regex in self.regex_list.toArray():
+                active = 1 if regex.active else 0
+                preparedStmt.setString(1, regex.name)
+                preparedStmt.setString(2, regex.regex)
+                preparedStmt.setInt(3, active)
+                preparedStmt.addBatch()
+            preparedStmt.executeBatch()
+            self.labelErrorMessage.setText("Saved RegExes")
+        except SQLException as e:
+            self.labelErrorMessage.setText("Error saving settings "+str(e))
+
+        stmt.close()
+        preparedStmt.close()
+        dbConn.close()
+
+class Regex(object):
+    """docstring for Regex"""
+    def __init__(self, name, regex, active = True):
+        self.regex = regex
+        self.name = name
+        self.active = active
+
+    def __repr__(self):
+        active = 'Active' if self.active else 'Inactive'
+        return '['+str(active)+'] '+self.name+': '+self.regex
+        
