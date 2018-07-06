@@ -40,6 +40,7 @@
 import jarray
 import inspect
 import os
+import re
 import logextractor
 import werExtractor
 import netaddr
@@ -820,12 +821,17 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.listRegex.setListData(self.regex_list)
 
     def addRegexToList(self, event):
-        regex = Regex(self.textFieldRegexName.getText(),
-                      self.textFieldRegex.getText())
-        self.regex_list.addElement(regex)
-        self.textFieldRegex.setText("")
-        self.textFieldRegexName.setText("")
-        self.updateGlobalRegexList()
+        try:
+            p = self.textFieldRegex.getText()
+            re.compile(p)
+
+            regex = Regex(self.textFieldRegexName.getText(), p)
+            self.regex_list.addElement(regex)
+            self.textFieldRegex.setText("")
+            self.textFieldRegexName.setText("")
+            self.updateGlobalRegexList()
+        except re.error:
+            self.labelErrorMessage.setText("Could not compile that RegEx.")            
 
     def removeRegexFromList(self, event):
         regex = self.listRegex.getSelectedValue()
