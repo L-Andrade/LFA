@@ -365,7 +365,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
     # Where the analysis is done.  Each file will be passed into here.
     def process(self, file):
-
+        self.log(Level.INFO, str(len(self.local_settings.getRegexList().toArray())))
         # Skip non-files
         if ((file.getType() == TskData.TSK_DB_FILES_TYPE_ENUM.UNALLOC_BLOCKS) or
             (file.getType() == TskData.TSK_DB_FILES_TYPE_ENUM.UNUSED_BLOCKS) or
@@ -709,11 +709,10 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettings(IngestModuleIngestJob
         self.checkEVTx = checkEVTx
 
     def getRegexList(self):
-        return self.regex_list
-    
-    def setRegexList(self,rList):
-       self.regex_list = rList
+        return self.regexList
 
+    def setRegexList(self, regex_list):
+        self.regexList = regex_list
 
 # UI that is shown to user for each ingest job so they can configure the job.
 
@@ -760,7 +759,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.local_settings.setCheckLogIPs(self.checkboxLogIPs.isSelected())
         self.saveFlagSetting("checkLogIPs", self.checkboxLogIPs.isSelected())
 
-    def updateGlobalRegexList(self, event):
+    def updateGlobalRegexList(self):
         self.local_settings.setRegexList(self.regex_list)
 
     def updateRegexList(self):
@@ -772,23 +771,24 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.regex_list.addElement(regex)
         self.textFieldRegex.setText("")
         self.textFieldRegexName.setText("")
-        self.updateRegexList()
+        self.updateGlobalRegexList()
 
     def removeRegexFromList(self, event):
         regex = self.listRegex.getSelectedValue()
         self.regex_list.removeElement(regex)
-        self.updateRegexList()
+        self.updateGlobalRegexList()
 
     def saveRegexesToDB(self, event):
         self.saveRegexes()
 
     def clearList(self, event):
         self.regex_list.clear()
-        self.updateRegexList()
+        self.updateGlobalRegexList()
 
     def activateRegex(self, event):
         regex = self.listRegex.getSelectedValue()
         regex.active = not regex.active
+        self.updateGlobalRegexList()
         # self.updateRegexList()
 
     def initComponents(self):
@@ -889,6 +889,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.add(self.labelErrorMessage)
         # Get UI values from database
         self.checkDatabaseEntries()
+        self.updateGlobalRegexList()
         self.panelAddRegex.setVisible(self.checkboxLog.isSelected())
 
     def customizeComponents(self):
