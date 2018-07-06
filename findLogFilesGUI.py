@@ -201,6 +201,12 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.art_wer_file = self.create_artifact(
             "Create new Artifact WER File", "TSK_LFA_WER_FILES", "WER files", skCase)
 
+        self.art_custom_regex = []
+        for idx, regex in enumerate(self.local_settings.getRegexList()): 
+            if(regex.active):
+                self.art_custom_regex.append(self.create_artifact(
+                    "Create new Artifact for custom regex :" + regex.name, "TSK_LFA_CUSTOM_REGEX_"+str(idx), regex.name, skCase))
+
         # Create the attribute type Log size, if it already exists, catch error
         # Log size shows the size of the file in bytes
         try:
@@ -332,7 +338,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.att_ip_type = skCase.getAttributeType("TSK_LFA_IP_TYPE")
         self.att_ip_version = skCase.getAttributeType("TSK_LFA_IP_VERSION")
         self.att_ip_domain = skCase.getAttributeType("TSK_LFA_IP_DOMAIN")
-        self.att_windows_ver = skCase.getAttributeType("TSK_LFA_WINDOWS_VERSION")
+        self.att_windows_ver = skCase.getAttributeType(
+            "TSK_LFA_WINDOWS_VERSION")
 
         self.temp_dir = Case.getCurrentCase().getTempDirectory()
 
@@ -375,14 +382,19 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             (file_name.endswith(".evtx") and self.local_settings.getCheckEVTx()) or
                 (file_name.endswith(".log") and self.local_settings.getCheckLog())):
 
-            # Get all file artifacts 
+            # Get all file artifacts
             skCase = Case.getCurrentCase().getSleuthkitCase()
-            #get one list at a time and append them 
-            werList = skCase.getBlackboardArtifacts(self.art_wer_file.getTypeID()) if skCase.getBlackboardArtifacts(self.art_wer_file.getTypeID()) is not None else []
-            dmpList = skCase.getBlackboardArtifacts(self.art_dmp_file.getTypeID()) if skCase.getBlackboardArtifacts(self.art_dmp_file.getTypeID()) is not None else []
-            evtList = skCase.getBlackboardArtifacts(self.art_evt_file.getTypeID()) if skCase.getBlackboardArtifacts(self.art_evt_file.getTypeID()) is not None else []
-            logList = skCase.getBlackboardArtifacts(self.art_log_file.getTypeID()) if skCase.getBlackboardArtifacts(self.art_log_file.getTypeID()) is not None else []
-            etlList = skCase.getBlackboardArtifacts(self.art_etl_file.getTypeID()) if skCase.getBlackboardArtifacts(self.art_etl_file.getTypeID()) is not None else []
+            # get one list at a time and append them
+            werList = skCase.getBlackboardArtifacts(self.art_wer_file.getTypeID(
+            )) if skCase.getBlackboardArtifacts(self.art_wer_file.getTypeID()) is not None else []
+            dmpList = skCase.getBlackboardArtifacts(self.art_dmp_file.getTypeID(
+            )) if skCase.getBlackboardArtifacts(self.art_dmp_file.getTypeID()) is not None else []
+            evtList = skCase.getBlackboardArtifacts(self.art_evt_file.getTypeID(
+            )) if skCase.getBlackboardArtifacts(self.art_evt_file.getTypeID()) is not None else []
+            logList = skCase.getBlackboardArtifacts(self.art_log_file.getTypeID(
+            )) if skCase.getBlackboardArtifacts(self.art_log_file.getTypeID()) is not None else []
+            etlList = skCase.getBlackboardArtifacts(self.art_etl_file.getTypeID(
+            )) if skCase.getBlackboardArtifacts(self.art_etl_file.getTypeID()) is not None else []
             werList.extend(dmpList)
             werList.extend(evtList)
             werList.extend(logList)
@@ -398,7 +410,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     return IngestModule.ProcessResult.OK
 
             self.filesFound += 1
-            
+
             ########################################################
             #       _ _    __ _ _        _                         #
             #      | | |  / _(_) |      | |                        #
@@ -409,7 +421,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             #                                 __/ | |              #
             #                                |___/|_|              #
             # ######################################################
-            
+
             # workaround to sort in which artifact to be insterted
             if(file_name.endswith(".wer")):
                 generic_art = self.art_wer_file
@@ -564,75 +576,76 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 self.log(Level.INFO, "Copying .log file of id " +
                          str(file.getId()))
 
-                # Get the parsed result
-                log_info = logextractor.log_extractor.extract_ip_addresses(
-                    self.temp_log_path)
-                self.log(
-                    Level.INFO, "Extracted .log file of id " + str(file.getId()))
-                self.log(Level.INFO, "Log info size: " + str(len(log_info)))
-
-                # Check if any error occurred
-                error = log_info.get('Error')
-                if error:
+                if(self.local_settings.getCheckLogIPs()):
+                    # Get the parsed result
+                    log_info = logextractor.log_extractor.extract_ip_addresses(
+                        self.temp_log_path)
                     self.log(
-                        Level.INFO, "ERROR: " + error + " at file of id: " + str(file.getId()))
-                    return IngestModule.ProcessResult.OK
+                        Level.INFO, "Extracted .log file of id " + str(file.getId()))
+                    self.log(Level.INFO, "Log info size: " + str(len(log_info)))
 
-                # An ad hoc log can have multiple artifacts
-                # As long as it has more than one IP address registered
-                # So let's iterate over the dictionary
-                for (ip, counter) in log_info.iteritems():
-                    # Create artifact
-                    ip_art = file.newArtifact(self.art_logged_ip.getTypeID())
-                    self.log(
-                        Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
+                    # Check if any error occurred
+                    error = log_info.get('Error')
+                    if error:
+                        self.log(
+                            Level.INFO, "ERROR: " + error + " at file of id: " + str(file.getId()))
+                        return IngestModule.ProcessResult.OK
 
-                    # Add IP type
-                    ip_type = self.get_ip_type(ip)
-                    ip_art.addAttribute(BlackboardAttribute(
-                        self.att_ip_type, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_type))
+                    # An ad hoc log can have multiple artifacts
+                    # As long as it has more than one IP address registered
+                    # So let's iterate over the dictionary
+                    for (ip, counter) in log_info.iteritems():
+                        # Create artifact
+                        ip_art = file.newArtifact(self.art_logged_ip.getTypeID())
+                        self.log(
+                            Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
 
-                    # Add current domain
-                    if(ip_type == 'Public'):
+                        # Add IP type
+                        ip_type = self.get_ip_type(ip)
+                        ip_art.addAttribute(BlackboardAttribute(
+                            self.att_ip_type, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_type))
+
+                        # Add current domain
+                        if(ip_type == 'Public'):
+                            try:
+                                ip_domain = socket.gethostbyaddr(ip)[0]
+                            except socket.herror as e:
+                                ip_domain = 'Error: ' + str(e)
+                        else:
+                            ip_domain = 'N/A'
+                        ip_art.addAttribute(BlackboardAttribute(
+                            self.att_ip_domain, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_domain))
+                        # Add IP version
+                        ip_version = "IPv" + str(netaddr.IPAddress(ip).version)
+                        ip_art.addAttribute(BlackboardAttribute(
+                            self.att_ip_version, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_version))
+
+                        # Add IP to artifact
+                        ip_art.addAttribute(BlackboardAttribute(
+                            self.att_ip_address, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(ip)))
+
+                        # Add counter to artifact
+                        ip_art.addAttribute(BlackboardAttribute(
+                            self.att_ip_counter, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(counter)))
+
+                        # Add file path to artifact
+                        ip_art.addAttribute(BlackboardAttribute(
+                            self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
+
+                        # Add artifact to Blackboard
                         try:
-                            ip_domain  = socket.gethostbyaddr(ip)[0]
-                        except socket.herror as e:
-                            ip_domain = 'Error: ' + str(e)
-                    else:
-                        ip_domain = 'N/A'
-                    ip_art.addAttribute(BlackboardAttribute(
-                        self.att_ip_domain, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_domain))
-                    # Add IP version
-                    ip_version = "IPv" + str(netaddr.IPAddress(ip).version)
-                    ip_art.addAttribute(BlackboardAttribute(
-                        self.att_ip_version, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_version))
+                            # Index the artifact for keyword search
+                            blackboard.indexArtifact(ip_art)
+                        except Blackboard.BlackboardException as e:
+                            self.log(Level.SEVERE, "Error indexing artifact " +
+                                     ip_art.getDisplayName())
+                        self.log(
+                            Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
 
-                    # Add IP to artifact
-                    ip_art.addAttribute(BlackboardAttribute(
-                        self.att_ip_address, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(ip)))
-
-                    # Add counter to artifact
-                    ip_art.addAttribute(BlackboardAttribute(
-                        self.att_ip_counter, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(counter)))
-
-                    # Add file path to artifact
-                    ip_art.addAttribute(BlackboardAttribute(
-                        self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
-
-                    # Add artifact to Blackboard
-                    try:
-                        # Index the artifact for keyword search
-                        blackboard.indexArtifact(ip_art)
-                    except Blackboard.BlackboardException as e:
-                        self.log(Level.SEVERE, "Error indexing artifact " +
-                                 ip_art.getDisplayName())
-                    self.log(
-                        Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
-
-                    # Fire an event to notify the UI and others that there is a new log artifact
-                    IngestServices.getInstance().fireModuleDataEvent(
-                        ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                                        self.art_logged_ip, None))
+                        # Fire an event to notify the UI and others that there is a new log artifact
+                        IngestServices.getInstance().fireModuleDataEvent(
+                            ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
+                                            self.art_logged_ip, None))
 
         return IngestModule.ProcessResult.OK
 
@@ -695,6 +708,13 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettings(IngestModuleIngestJob
     def setCheckEVTx(self, checkEVTx):
         self.checkEVTx = checkEVTx
 
+    def getRegexList(self):
+        return self.regex_list
+    
+    def setRegexList(self,rList):
+       self.regex_list = rList
+
+
 # UI that is shown to user for each ingest job so they can configure the job.
 
 
@@ -740,24 +760,31 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.local_settings.setCheckLogIPs(self.checkboxLogIPs.isSelected())
         self.saveFlagSetting("checkLogIPs", self.checkboxLogIPs.isSelected())
 
+    def updateGlobalRegexList(self, event):
+        self.local_settings.setRegexList(self.regex_list)
+
     def updateRegexList(self):
         self.listRegex.setListData(self.regex_list)
 
     def addRegexToList(self, event):
-        regex = Regex(self.textFieldRegexName.getText(), self.textFieldRegex.getText())
+        regex = Regex(self.textFieldRegexName.getText(),
+                      self.textFieldRegex.getText())
         self.regex_list.addElement(regex)
         self.textFieldRegex.setText("")
         self.textFieldRegexName.setText("")
+        self.updateRegexList()
 
     def removeRegexFromList(self, event):
         regex = self.listRegex.getSelectedValue()
         self.regex_list.removeElement(regex)
+        self.updateRegexList()
 
     def saveRegexesToDB(self, event):
         self.saveRegexes()
 
     def clearList(self, event):
         self.regex_list.clear()
+        self.updateRegexList()
 
     def activateRegex(self, event):
         regex = self.listRegex.getSelectedValue()
@@ -778,7 +805,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         panelRegexes.setAlignmentX(JComponent.LEFT_ALIGNMENT)
 
         panelRegexesButtons = JPanel()
-        panelRegexesButtons.setLayout(BoxLayout(panelRegexesButtons, BoxLayout.X_AXIS))
+        panelRegexesButtons.setLayout(
+            BoxLayout(panelRegexesButtons, BoxLayout.X_AXIS))
         panelRegexesButtons.setAlignmentX(JComponent.LEFT_ALIGNMENT)
 
         self.panelAddRegex = JPanel()
@@ -786,30 +814,41 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         gbc = GridBagConstraints()
         self.panelAddRegex.setAlignmentX(JComponent.LEFT_ALIGNMENT)
 
-
         self.labelCheckText = JLabel("Check for type files: ")
         self.labelAddRegex = JLabel("Add RegEx to .log files: ")
         self.labelAddRegexName = JLabel("Name: ")
         self.labelAddRegexRegex = JLabel(" RegEx: ")
         self.labelErrorMessage = JLabel(" ")
-        self.labelInfoMessage = JLabel("Checking for domain needs internet access (.log IP addresses)")
+        self.labelInfoMessage = JLabel(
+            "Checking for domain needs internet access (.log IP addresses)")
         self.labelCheckText.setEnabled(True)
         self.labelInfoMessage.setEnabled(True)
         self.labelErrorMessage.setEnabled(True)
         self.labelAddRegex.setEnabled(True)
 
-        self.checkboxWER = JCheckBox("WER", actionPerformed=self.checkBoxEventWER)
-        self.checkboxETL = JCheckBox("ETL", actionPerformed=self.checkBoxEventETL)
-        self.checkboxLog = JCheckBox("Log", actionPerformed=self.checkBoxEventLog)
-        self.checkboxEVTx = JCheckBox("EVTx", actionPerformed=self.checkBoxEventEVTx)
-        self.checkboxDmp = JCheckBox("Dmp", actionPerformed=self.checkBoxEventDmp)
-        self.checkboxLogIPs = JCheckBox("Check .log IPs", actionPerformed=self.checkBoxEventLogIPs)
+        self.checkboxWER = JCheckBox(
+            "WER", actionPerformed=self.checkBoxEventWER)
+        self.checkboxETL = JCheckBox(
+            "ETL", actionPerformed=self.checkBoxEventETL)
+        self.checkboxLog = JCheckBox(
+            "Log", actionPerformed=self.checkBoxEventLog)
+        self.checkboxEVTx = JCheckBox(
+            "EVTx", actionPerformed=self.checkBoxEventEVTx)
+        self.checkboxDmp = JCheckBox(
+            "Dmp", actionPerformed=self.checkBoxEventDmp)
+        self.checkboxLogIPs = JCheckBox(
+            "Check .log IPs", actionPerformed=self.checkBoxEventLogIPs)
 
-        self.buttonAddRegex = JButton("Add", actionPerformed=self.addRegexToList)
-        self.buttonRemoveRegex = JButton("Remove", actionPerformed=self.removeRegexFromList)
-        self.buttonActivateRegex = JButton("(De) Activate", actionPerformed=self.activateRegex)
-        self.buttonClearRegex = JButton("Clear", actionPerformed=self.clearList)
-        self.buttonSaveRegexes = JButton("Save", actionPerformed=self.saveRegexesToDB)
+        self.buttonAddRegex = JButton(
+            "Add", actionPerformed=self.addRegexToList)
+        self.buttonRemoveRegex = JButton(
+            "Remove", actionPerformed=self.removeRegexFromList)
+        self.buttonActivateRegex = JButton(
+            "(De) Activate", actionPerformed=self.activateRegex)
+        self.buttonClearRegex = JButton(
+            "Clear", actionPerformed=self.clearList)
+        self.buttonSaveRegexes = JButton(
+            "Save", actionPerformed=self.saveRegexesToDB)
         self.buttonAddRegex.setEnabled(True)
 
         self.textFieldRegex = JTextField(15)
@@ -817,7 +856,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
 
         self.listRegex = JList(self.regex_list)
         # self.listRegex.setVisibleRowCount(3)
-        self.scrollPaneListRegex = JScrollPane(self.listRegex) 
+        self.scrollPaneListRegex = JScrollPane(self.listRegex)
 
         self.add(self.labelCheckText)
         panelFiles.add(self.checkboxWER)
@@ -829,14 +868,14 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.add(self.checkboxLogIPs)
         self.add(self.labelInfoMessage)
         gbc.fill = GridBagConstraints.HORIZONTAL
-        self.panelAddRegex.add(self.labelAddRegex,gbc)
+        self.panelAddRegex.add(self.labelAddRegex, gbc)
         panelRegexes.add(self.labelAddRegexName)
         panelRegexes.add(self.textFieldRegexName)
         panelRegexes.add(self.labelAddRegexRegex)
         panelRegexes.add(self.textFieldRegex)
         panelRegexes.add(self.buttonAddRegex)
         gbc.gridy = 2
-        self.panelAddRegex.add(panelRegexes,gbc)
+        self.panelAddRegex.add(panelRegexes, gbc)
         gbc.gridy = 3
         self.panelAddRegex.add(self.scrollPaneListRegex, gbc)
         panelRegexesButtons.add(self.buttonRemoveRegex)
@@ -844,7 +883,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         panelRegexesButtons.add(self.buttonSaveRegexes)
         panelRegexesButtons.add(self.buttonActivateRegex)
         gbc.gridy = 4
-        self.panelAddRegex.add(panelRegexesButtons,gbc)
+        self.panelAddRegex.add(panelRegexesButtons, gbc)
         self.add(self.panelAddRegex)
 
         self.add(self.labelErrorMessage)
@@ -903,7 +942,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
             query = 'SELECT * FROM regexes;'
             resultSet = stmt.executeQuery(query)
             while resultSet.next():
-                regex = Regex(resultSet.getString("name"), resultSet.getString("regex"), resultSet.getInt("active")>0)
+                regex = Regex(resultSet.getString("name"), resultSet.getString(
+                    "regex"), resultSet.getInt("active") > 0)
                 self.regex_list.addElement(regex)
             self.labelErrorMessage.setText("Settings read successfully!")
         except SQLException as e:
@@ -954,7 +994,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         except SQLException as e:
             self.labelErrorMessage.setText("Error saving settings "+str(e))
         try:
-            sql = "INSERT INTO regexes (name, regex, active) values (?, ?, ?)";
+            sql = "INSERT INTO regexes (name, regex, active) values (?, ?, ?)"
             preparedStmt = dbConn.prepareStatement(sql)
             for regex in self.regex_list.toArray():
                 active = 1 if regex.active else 0
@@ -971,9 +1011,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         preparedStmt.close()
         dbConn.close()
 
+
 class Regex(object):
     """docstring for Regex"""
-    def __init__(self, name, regex, active = True):
+
+    def __init__(self, name, regex, active=True):
         self.regex = regex
         self.name = name
         self.active = active
@@ -981,4 +1023,3 @@ class Regex(object):
     def __repr__(self):
         active = 'Active' if self.active else 'Inactive'
         return '['+str(active)+'] '+self.name+': '+self.regex
-        
