@@ -31,6 +31,25 @@ def extract_ip_addresses(path_to_file):
 
     return my_dict
 
+def extract_custom_regex(path_to_file, regex):
+    lines = _read_file_lines(path_to_file)
+
+    pattern = re.compile(regex)
+    my_dict = {}
+    try:
+        for line in lines:
+            occurrences = pattern.findall(line)
+            for match in occurrences:
+                match = match.lower()
+                if my_dict.get(match):
+                    my_dict[match] += 1
+                else:
+                    my_dict[match] = 1
+    except:
+        return {'Error': 'unable to parse file'}
+
+    return my_dict
+
 def is_valid_ipv4(address):
     try:
         socket.inet_pton(socket.AF_INET, address)

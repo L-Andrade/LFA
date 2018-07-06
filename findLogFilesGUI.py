@@ -201,11 +201,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.art_wer_file = self.create_artifact(
             "Create new Artifact WER File", "TSK_LFA_WER_FILES", "WER files", skCase)
 
-        self.art_custom_regex = []
-        for idx, regex in enumerate(self.local_settings.getRegexList()): 
+        self.art_custom_regex = {}
+        for idx, regex in enumerate(self.local_settings.getRegexList().toArray()):
             if(regex.active):
-                self.art_custom_regex.append(self.create_artifact(
-                    "Create new Artifact for custom regex :" + regex.name, "TSK_LFA_CUSTOM_REGEX_"+str(idx), regex.name, skCase))
+                self.art_custom_regex[regex.regex] = self.create_artifact(
+                    "Create new Artifact for custom regex :" + regex.name, "TSK_LFA_CUSTOM_REGEX_"+str(idx), regex.name, skCase)
 
         # Create the attribute type Log size, if it already exists, catch error
         # Log size shows the size of the file in bytes
@@ -320,6 +320,13 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute Windows version")
 
+        # Creater custom match content
+        try:
+            self.att_custom_match = skCase.addArtifactAttributeType(
+                'TSK_LFA_CUSTOM_MATCH', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Content matched")
+        except:
+            self.log(Level.INFO, "Error creating attribute custom match")
+
         # Get Attributes after they are created
         self.att_log_size = skCase.getAttributeType("TSK_LFA_LOG_SIZE")
         self.att_created_time = skCase.getAttributeType("TSK_LFA_CREATED_TIME")
@@ -340,6 +347,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.att_ip_domain = skCase.getAttributeType("TSK_LFA_IP_DOMAIN")
         self.att_windows_ver = skCase.getAttributeType(
             "TSK_LFA_WINDOWS_VERSION")
+        self.att_custom_match = skCase.getAttributeType("TSK_LFA_CUSTOM_MATCH")
 
         self.temp_dir = Case.getCurrentCase().getTempDirectory()
 
@@ -365,7 +373,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
     # Where the analysis is done.  Each file will be passed into here.
     def process(self, file):
-        self.log(Level.INFO, str(len(self.local_settings.getRegexList().toArray())))
+
         # Skip non-files
         if ((file.getType() == TskData.TSK_DB_FILES_TYPE_ENUM.UNALLOC_BLOCKS) or
             (file.getType() == TskData.TSK_DB_FILES_TYPE_ENUM.UNUSED_BLOCKS) or
@@ -576,13 +584,58 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 self.log(Level.INFO, "Copying .log file of id " +
                          str(file.getId()))
 
+                # search with the custom patterns inserted by the user.
+                custom_arts = []
+                for regex in self.art_custom_regex:
+                        # Get the parsed result
+                    self.log(Level.INFO, "regex pattern " +
+                             str(regex))
+                    log_info = logextractor.log_extractor.extract_custom_regex(
+                        self.temp_log_path, regex)
+                    self.log(
+                        Level.INFO, "Extracted .log file of id " + str(file.getId()))
+                    self.log(Level.INFO, "Log info size: " +
+                             str(len(log_info)))
+                    # Check if any error occurred
+                    error = log_info.get('Error')
+                    if error:
+                        self.log(
+                            Level.INFO, "ERROR: " + error + " at file of id: " + str(file.getId()))
+                        return IngestModule.ProcessResult.OK
+
+                    for occurence, counter in log_info.iteritems():
+                        art = file.newArtifact(
+                            self.art_custom_regex[regex].getTypeID())
+
+                        art.addAttribute(BlackboardAttribute(
+                            self.att_custom_match, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(occurence)))
+                        art.addAttribute(BlackboardAttribute(
+                            self.att_ip_counter, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(counter)))
+                        art.addAttribute(BlackboardAttribute(
+                            self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
+
+                        # Add artifact to Blackboard
+                        try:
+                            # Index the artifact for keyword search
+                            blackboard.indexArtifact(art)
+                        except Blackboard.BlackboardException as e:
+                            self.log(Level.SEVERE, "Error indexing artifact " +
+                                     art.getDisplayName())
+                        self.log(
+                            Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
+                        # Fire an event to notify the UI and others that there is a new log artifact
+                        IngestServices.getInstance().fireModuleDataEvent(
+                            ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
+                                            self.art_custom_regex[regex], None))
+
                 if(self.local_settings.getCheckLogIPs()):
                     # Get the parsed result
                     log_info = logextractor.log_extractor.extract_ip_addresses(
                         self.temp_log_path)
                     self.log(
                         Level.INFO, "Extracted .log file of id " + str(file.getId()))
-                    self.log(Level.INFO, "Log info size: " + str(len(log_info)))
+                    self.log(Level.INFO, "Log info size: " +
+                             str(len(log_info)))
 
                     # Check if any error occurred
                     error = log_info.get('Error')
@@ -596,7 +649,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     # So let's iterate over the dictionary
                     for (ip, counter) in log_info.iteritems():
                         # Create artifact
-                        ip_art = file.newArtifact(self.art_logged_ip.getTypeID())
+                        ip_art = file.newArtifact(
+                            self.art_logged_ip.getTypeID())
                         self.log(
                             Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
 
