@@ -588,28 +588,23 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 # search with the custom patterns inserted by the user.
                 custom_arts = []
                 for regex in self.art_custom_regex:
-                        # Get the parsed result
-                    self.log(Level.INFO, "regex pattern " +
-                             str(regex))
+                    # Get the parsed result
+                    self.log(Level.INFO, "regex pattern " + str(regex))
                     log_info = logextractor.log_extractor.extract_custom_regex(
                         self.temp_log_path, regex)
-                    self.log(
-                        Level.INFO, "Extracted .log file of id " + str(file.getId()))
-                    self.log(Level.INFO, "Log info size: " +
-                             str(len(log_info)))
+                    self.log(Level.INFO, "Extracted .log file of id " + str(file.getId()))
+                    self.log(Level.INFO, "Log info size: " + str(len(log_info)))
                     # Check if any error occurred
                     error = log_info.get('Error')
                     if error:
-                        self.log(
-                            Level.INFO, "ERROR: " + error + " at file of id: " + str(file.getId()))
+                        self.log(Level.INFO, "ERROR: " + error + " at file of id: " + str(file.getId()))
                         return IngestModule.ProcessResult.OK
 
-                    for occurence, counter in log_info.iteritems():
-                        art = file.newArtifact(
-                            self.art_custom_regex[regex].getTypeID())
+                    for occurrence, counter in log_info.iteritems():
+                        art = file.newArtifact(self.art_custom_regex[regex].getTypeID())
 
                         art.addAttribute(BlackboardAttribute(
-                            self.att_custom_match, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(occurence)))
+                            self.att_custom_match, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(occurrence)))
                         art.addAttribute(BlackboardAttribute(
                             self.att_ip_counter, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(counter)))
                         art.addAttribute(BlackboardAttribute(
@@ -663,7 +658,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         # Add current domain
                         if(ip_type == 'Public'):
                             try:
-                                ip_domain = socket.gethostbyaddr(ip)[0]
+                                domain = socket.gethostbyaddr(ip)[0]
+                                ip_domain = domain if domain is not ip else 'Same as IP'
                             except socket.herror as e:
                                 ip_domain = 'Error: ' + str(e)
                         else:
