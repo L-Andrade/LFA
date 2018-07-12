@@ -57,10 +57,12 @@ from javax.swing import BoxLayout
 
 XLS_REPORTED_HEADER_COUNT = 6
 XLS_IPS_HEADER_COUNT = 6
+XLS_REGEX_HEADER_COUNT = 3
 WS_NAME_STATISTICS = 'Statistics'
 WS_NAME_STATISTICS_DATA = 'Raw data'
 WS_NAME_REPORTED_PROGRAMS = 'Reported programs'
 WS_NAME_LOGGED_IPS = 'Logged IPs'
+WS_NAME_CUSTOM_REGEX = 'Custom RegExs'
 
 class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
@@ -84,6 +86,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
     def getRelativeFilePathIPsHTML(self):
         return "LFA_IPs" + Case.getCurrentCase().getName() + ".html"
+
+    def getRelativeFilePathRegExHTML(self):
+        return "LFA_RegEx" + Case.getCurrentCase().getName() + ".html"
 
     def getRelativeFilePathDFXML(self):
         return "LFA_" + Case.getCurrentCase().getName() + ".xml"
@@ -136,8 +141,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 att = {'type': attribute.getAttributeTypeDisplayName()}
                 dfxml.addParamsToNode(fo, 'dc:attribute', attribute_value, att)
 
-                
-
         # Update progress bar every 10 artifacts
         if art_count % 10 == 0:
             progressBar.increment()
@@ -172,7 +175,12 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         art_list_reported_progs = skCase.getBlackboardArtifacts("TSK_LFA_REPORTED_PROGRAMS")
         art_list_logged_ips = skCase.getBlackboardArtifacts("TSK_LFA_LOG_FILE_IP")
 
-        total_artifact_count = len(art_list_reported_progs) + len(art_list_logged_ips)
+        # Get artifact list regarding custom RegExs
+        # Had to dig in to Autopsy source code for database knowledge...
+        art_list_custom_regex = skCase.getMatchingArtifacts("JOIN blackboard_artifact_types AS types ON blackboard_artifacts.artifact_type_id = types.artifact_type_id WHERE types.type_name LIKE 'TSK_LFA_CUSTOM_REGEX_%'")
+        self.log(Level.INFO, 'Got RegEx artifact list: '+str(len(art_list_custom_regex)))
+
+        total_artifact_count = len(art_list_reported_progs) + len(art_list_logged_ips) + len(art_list_custom_regex)
 
 
         # Dividing by ten because progress bar shouldn't be updated too frequently
@@ -193,8 +201,10 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         html_programs = None
         html_ips = None
+        html_regex = None
         xls_ws_reported = None
         xls_ws_logged_ips = None
+        xls_ws_regex = None
         dfxml = None
 
         # Init reports
@@ -202,9 +212,11 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Get html_file_name
             html_file_name = os.path.join(baseReportDir, self.getRelativeFilePath())
             html_file_name_ips = os.path.join(baseReportDir, self.getRelativeFilePathIPsHTML())
+            html_file_name_regex = os.path.join(baseReportDir, self.getRelativeFilePathRegExHTML())
             # Get template path
             template_name_programs = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_programs.html")
             template_name_ips = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_ips.html")
+            template_name_regex = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_regex.html")
             
             # Open template HTML
             # The template has a table and a basic interface to show results
@@ -216,6 +228,10 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 txt = inf.read()
                 html_ips = bs4.BeautifulSoup(txt)
 
+            with open(template_name_regex) as inf:
+                txt = inf.read()
+                html_regex = bs4.BeautifulSoup(txt)
+
         if generateXLS:
             # Get xls_file_name
             xls_file_name = os.path.join(baseReportDir, self.getRelativeFilePathXLS())
@@ -224,6 +240,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             report_xls_wb = xlsxwriter.Workbook(xls_file_name)
             xls_ws_reported = report_xls_wb.add_worksheet(WS_NAME_REPORTED_PROGRAMS)
             xls_ws_logged_ips = report_xls_wb.add_worksheet(WS_NAME_LOGGED_IPS)
+            xls_ws_regex = report_xls_wb.add_worksheet(WS_NAME_CUSTOM_REGEX)
 
         if generateDFXML:
             dfxml_path = os.path.join(baseReportDir, self.getRelativeFilePathDFXML())
@@ -433,8 +450,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         ips_info_str = str(len(art_list_logged_ips)) + " artifacts out of " + str(files_log_count) + " .log files and " + str(len(ip_dictionary)) + " unique IPs."
 
         if generateHTML:
-            # Select tag '<p>' with ID tableinfo - 0 because report_html.select returns an array
-            info = html_ips.select("p#tableinfo")[0]
+            # Select tag '<p>' with ID tableipsinfo - 0 because report_html.select returns an array
+            info = html_ips.select("p#tableipsinfo")[0]
             info.string = reported_info_str
 
         if generateXLS:
@@ -451,6 +468,50 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             xls_ws_logged_ips.write(xls_row_count+1, 0, ips_info_str)
         
+        #############################################
+        #  _____               ______               #
+        # |  __ \             |  ____|              #
+        # | |__) | ___   __ _ | |__   __  __ ___    #
+        # |  _  / / _ \ / _` ||  __|  \ \/ // __|   #
+        # | | \ \|  __/| (_| || |____  >  < \__ \   #
+        # |_|  \_\\___| \__, ||______|/_/\_\|___/   #
+        #                __/ |                      #
+        #               |___/                       #
+        #############################################
+
+        progressBar.updateStatusLabel("Going through custom RegEx artifacts now...")
+
+        # Reset counters
+        art_count = 0
+        xls_row_count = 1
+
+        # Create a table row for each attribute
+        for artifact in art_list_custom_regex:
+            art_count += 1
+            # Function returns an HTML row in case we're doing a HTML report
+            # So that we can add more info to that row reference if required
+            # Not required for Excel because it can be done with coordinates
+            row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_regex, xls_ws_regex, dfxml)
+            
+            if generateXLS:
+                xls_row_count += 1
+
+            if generateHTML:
+                # Select tag with ID regextable - 0 because report_html.select returns an array
+                table = html_regex.select("#regextable")[0]
+                table.append(row)
+
+        # Add headers to XLS
+        if generateXLS:
+            # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
+            xls_ws_regex.add_table(0,0,xls_row_count-1,XLS_REGEX_HEADER_COUNT-1, 
+                                            {'columns':[
+                                                {'header': 'Pattern'},
+                                                {'header': 'Occurrences'},
+                                                {'header': 'Log path'}
+                                            ]})
+
+
         #########################################################################
         #   _____                                _____  _          _            #
         #  / ____|                      ___     / ____|| |        | |           #
@@ -472,11 +533,17 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             program_link = html_ips.select('#programslink')[0]
             program_link['href'] = self.getRelativeFilePath()
 
+            regex_link = html_programs.select('#customregexslink')[0]
+            regex_link['href'] = self.getRelativeFilePathRegExHTML()            
+
             with open(html_file_name, "w") as outf:
                 outf.write(str(html_programs))
 
             with open(html_file_name_ips, "w") as outf:
                 outf.write(str(html_ips))
+
+            with open(html_file_name_regex, "w") as outf:
+                outf.write(str(html_regex))
 
             self.log(Level.INFO, "Saving HTML Report to: "+html_file_name)
             # Add the report to the Case, so it is shown in the tree

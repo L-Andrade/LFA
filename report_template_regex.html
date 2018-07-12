@@ -19,8 +19,8 @@
                 <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
                     <ul class="nav navbar-nav">
                         <li><a href="#" id="programslink">Reported programs</a></li>
-                        <li class="active"><a href="#" id="loggedipslink">Logged IPs <span class="sr-only">(current)</span></a></li>
-                        <li><a href="#" id="customregexslink">Custom RegExs</a></li>
+                        <li><a href="#" id="loggedipslink">Logged IPs</a></li>
+                        <li class="active"><a href="#" id="customregexslink">Custom RegExs <span class="sr-only">(current)</span></a></li>
                     </ul>
                 </div>
             </div>
@@ -31,16 +31,13 @@
         <!-- Default panel contents -->
             <div class="panel-heading">IPs found in .log files</div>
             <div class="panel-body">
-                <p id="tableipsinfo"></p>
+                <p id="tableregexinfo"></p>
             </div>
             <!-- Table -->
-            <table class="table" id="loggedipstable">
+            <table class="table" id="regextable">
                 <thead>
                     <tr>
-                        <th>Type</th>
-                        <th>Domain</th>                        
-                        <th>Version</th>
-                        <th>IP Address</th>
+                        <th>Pattern</th>
                         <th>Occurrences</th>
                         <th>Log path</th>
                     </tr>
