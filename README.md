@@ -15,7 +15,7 @@
 
 # Installation
 
-1.  Download as ZIP directly from here or from [Zenodo](https://zenodo.org/record/1285266#.WxmFYiAo9PY)
+1.  Download as ZIP directly from here or from [Zenodo](https://zenodo.org/record/1295604)
 2.  Go to your Python Modules folder:
     1. Open Autopsy
     2. Tools > Python Plugins
