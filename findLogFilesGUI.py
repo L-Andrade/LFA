@@ -293,6 +293,14 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute IP counter")
 
+        # Create the attribute type Protocol, which means if a protocol was found associated to the IP
+        try:
+            self.att_ip_protocol = skCase.addArtifactAttributeType(
+                'TSK_LFA_IP_PROTOCOL', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Protocol")
+        except:
+            self.log(Level.INFO, "Error creating attribute IP protocol")
+
+
         # Create the attribute type IP type, which says if the IP is public or private
         try:
             self.att_ip_type = skCase.addArtifactAttributeType(
@@ -343,6 +351,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.att_dump_files = skCase.getAttributeType("TSK_LFA_DUMP_FILES")
         self.att_ip_address = skCase.getAttributeType("TSK_LFA_IP_ADDRESS")
         self.att_ip_counter = skCase.getAttributeType("TSK_LFA_IP_COUNTER")
+        self.att_ip_protocol = skCase.getAttributeType("TSK_LFA_IP_PROTOCOL")
         self.att_ip_type = skCase.getAttributeType("TSK_LFA_IP_TYPE")
         self.att_ip_version = skCase.getAttributeType("TSK_LFA_IP_VERSION")
         self.att_ip_domain = skCase.getAttributeType("TSK_LFA_IP_DOMAIN")
@@ -634,16 +643,16 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                              str(len(log_info)))
 
                     # Check if any error occurred
-                    error = log_info.get('Error')
+                    error = 'error' in log_info
                     if error:
                         self.log(
-                            Level.INFO, "ERROR: " + error + " at file of id: " + str(file.getId()))
+                            Level.INFO, "ERROR: " + log_info[1] + " at file of id: " + str(file.getId()))
                         return IngestModule.ProcessResult.OK
 
                     # An ad hoc log can have multiple artifacts
                     # As long as it has more than one IP address registered
                     # So let's iterate over the dictionary
-                    for (ip, counter) in log_info.iteritems():
+                    for ip, protocol, counter in log_info:
                         # Create artifact
                         ip_art = file.newArtifact(
                             self.art_logged_ip.getTypeID())
@@ -674,6 +683,10 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         # Add IP to artifact
                         ip_art.addAttribute(BlackboardAttribute(
                             self.att_ip_address, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(ip)))
+
+                        # Add protocol to artifact
+                        ip_art.addAttribute(BlackboardAttribute(
+                            self.att_ip_protocol, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(protocol)))
 
                         # Add counter to artifact
                         ip_art.addAttribute(BlackboardAttribute(
