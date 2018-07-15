@@ -9,7 +9,7 @@ IP_REGEX_PATTERN = r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b"
 # For IPv6
 IPV6_REGEX_PATTERN = r"(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,2}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,3}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,4}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|(?:(?:[0-9A-Fa-f]{1,4}:){,6}[0-9A-Fa-f]{1,4})?::)"
 
-# Protocol Regex
+# Protocols
 PROTOCOLS = ["TCP",  "UDP", "ICMP", "HTTP",
              "FTP", "POP", "SSH", "TLS", "SSL"]
 
@@ -21,7 +21,7 @@ def extract_ip_addresses(path_to_file):
     p_ipv6 = re.compile(IPV6_REGEX_PATTERN)
 
     # this is what will be returned, the formart is a bi-dimentional array
-    # eg: [[192.168.1.1, "HTTP",2][[192.168.1.10, "POP",3]]]
+    # eg: [[192.168.1.1, "HTTP",2],[192.168.1.10, "POP",3]]
     # format is [[ip,protocol,number of occurrences ]]
     my_list = []
     try:
@@ -29,32 +29,28 @@ def extract_ip_addresses(path_to_file):
             occurrences = p_ipv4.findall(line)
             occurrences.extend(p_ipv6.findall(line))
 
-            split_line = line.split()
             for ip in occurrences:
-                ip = ip.lower()
-                # splitting the line into words so we can control the distance from the found IP to the protocol search. 
-                # IMPORTANT: right now if the same ip appears multiple times in the same line it will not work properly since split_lines.index(ip) returns the first occurence 
-                index = split_line.index(ip)
-                # getting the index ranges to cycle through
-                min_index = index - 5 if index - 5 > 0 else 0
-                max_index = index + 5 if index + 5 < len(split_line) else len(split_line)
+                if is_valid_ip(ip):
+                    ip = ip.lower()
 
-                protocol = "N/A" # default val
-                for i in range(min_index,max_index):
-                    if (split_line[i].upper() in PROTOCOLS):
-                        protocol = split_line[i]
-                        break
+                    # Needs optimization...
+                    protocol = "N/A" # default val
+                    for p in PROTOCOLS:
+                        if p in line:
+                            protocol = p
 
-                #search for the ip protocol combination in the list, if found incrase the counter else create one
-                for entry in my_list:
-                    if entry[0] == ip and entry[1] == protocol:
-                        entry[2] +=1
-                        break 
-                else:
-                    my_list.append([ip,protocol,1])
+                    # Search for the ip protocol combination in the list, if found incrase the counter else create one
+                    found_entry = False
+                    for entry in my_list:
+                        if entry[0] == ip and entry[1] == protocol:
+                            entry[2] +=1
+                            found_entry = True
+                            break 
+                    if not found_entry:
+                        my_list.append([ip,protocol,1])
 
-    except:
-        return ['Error', 'unable to parse file']
+    except Exception as e:
+        return ['Log Extractor Error : ' + str(e)]
 
     return my_list
 

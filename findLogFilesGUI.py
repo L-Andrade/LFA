@@ -115,7 +115,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUIFactory(IngestModuleFactoryAda
         return "This module searchs for certain log files."
 
     def getModuleVersionNumber(self):
-        return "1.0"
+        return "1.3"
 
     # TODO: Update class name to one that you create below
     def getDefaultIngestJobSettings(self):
@@ -652,7 +652,13 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     # An ad hoc log can have multiple artifacts
                     # As long as it has more than one IP address registered
                     # So let's iterate over the dictionary
-                    for ip, protocol, counter in log_info:
+                    for arr in log_info:
+                        if 'Error' in arr:
+                            self.log(Level.INFO, "ERROR: " + str(arr) + " at IP info array")
+                            return IngestModule.ProcessResult.OK
+                        ip = arr[0]
+                        protocol = arr[1]
+                        counter = arr[2]
                         # Create artifact
                         ip_art = file.newArtifact(
                             self.art_logged_ip.getTypeID())
@@ -667,8 +673,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         # Add current domain
                         if(ip_type == 'Public'):
                             try:
-                                domain = socket.gethostbyaddr(ip)[0]
-                                ip_domain = domain if domain is not ip else 'Same as IP'
+                                domain = socket.gethostbyaddr(arr[0])[0]
+                                ip_domain = 'Same as IP' if domain == ip else domain
                             except socket.herror as e:
                                 ip_domain = 'Error: ' + str(e)
                         else:

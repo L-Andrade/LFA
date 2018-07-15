@@ -55,8 +55,8 @@ from javax.swing import JCheckBox
 from javax.swing import JLabel
 from javax.swing import BoxLayout
 
-XLS_REPORTED_HEADER_COUNT = 6
-XLS_IPS_HEADER_COUNT = 6
+XLS_REPORTED_HEADER_COUNT = 7
+XLS_IPS_HEADER_COUNT = 7
 XLS_REGEX_HEADER_COUNT = 3
 WS_NAME_STATISTICS = 'Statistics'
 WS_NAME_STATISTICS_DATA = 'Raw data'
@@ -462,6 +462,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                                                 {'header': 'Domain'},
                                                 {'header': 'Version'},
                                                 {'header': 'IP Address'},
+                                                {'header': 'Protocol'},
                                                 {'header': 'Occurrences'},
                                                 {'header': 'Log path'}
                                             ]})
