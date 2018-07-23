@@ -36,12 +36,12 @@ def extract_ip_addresses(path_to_file):
             for ip in occurrences:
                 if is_valid_ip(ip):
                     ip = ip.lower()
-
-                    # Needs optimization...
-                    split_line = line.split()
                     
                     # List of protocols contained in the line
-                    protocol_list = [p.upper() for p in split_line if p.upper() in PROTOCOLS]
+                    # Might have false positives, but protocols surrounded by [] and ()
+                    # Need to be harvested...
+                    line_all_upper = line.upper()
+                    protocol_list = [p for p in PROTOCOLS if p in line_all_upper]
 
                     # Order protocol list alphabetically and convert to string...
                     # Sorting protocols and not allowing duplicates means that
@@ -70,23 +70,26 @@ def extract_ip_addresses(path_to_file):
 
 
 def extract_custom_regex(path_to_file, regex):
-    lines = _read_file_lines(path_to_file)
+    regex_dict = {}
+    try:
+        lines = _read_file_lines(path_to_file)
+    except IOError:
+        raise
 
     pattern = re.compile(regex)
-    my_dict = {}
     try:
         for line in lines:
             occurrences = pattern.findall(line)
             for match in occurrences:
                 match = match.lower()
-                if my_dict.get(match):
-                    my_dict[match] += 1
+                if regex_dict.get(match):
+                    regex_dict[match] += 1
                 else:
-                    my_dict[match] = 1
+                    regex_dict[match] = 1
     except:
-        return {'Error': 'unable to parse file'}
+        raise
 
-    return my_dict
+    return regex_dict
 
 
 def is_valid_ipv4(address):
@@ -121,5 +124,5 @@ def _read_file_lines(path_to_file):
         lines = f.readlines()
         f.close()
     except IOError:
-        raise IOError(u'Failed to open file')
+        raise
     return lines

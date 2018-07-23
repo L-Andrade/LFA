@@ -508,15 +508,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                          str(file.getId()))
 
                 # Get the parsed result
-                wer_info = werExtractor.wer_extractor.extract_default_keys(
-                    self.temp_wer_path)
-                self.log(
-                    Level.INFO, "Extracted .wer file of id " + str(file.getId()))
-
-                # Check if any error occurred
-                if wer_info.get('Error'):
-                    self.log(
-                        Level.INFO, "Could not parse .wer file of id: " + str(file.getId()))
+                try:
+                    wer_info = werExtractor.wer_extractor.extract_default_keys(self.temp_wer_path)
+                    self.log(Level.INFO, "Extracted .wer file of id " + str(file.getId()))
+                except (Exception, JavaException) as e:
+                    self.log(Level.INFO, "ERROR: Extracting .wer of Id (" + str(file.getId())+"): "+str(e))
                     return IngestModule.ProcessResult.OK
 
                 # Create new program artifact if .wer file is valid
@@ -596,18 +592,20 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 # Search with the custom patterns inserted by the user
                 for regex in self.art_custom_regex:
                     # Get the parsed result
-                    self.log(Level.INFO, "regex pattern " + str(regex))
-                    log_info = logextractor.log_extractor.extract_custom_regex(
-                        self.temp_log_path, regex)
+                    self.log(Level.INFO, "Regex pattern " + str(regex))
+                    try:
+                        log_info = logextractor.log_extractor.extract_custom_regex(self.temp_log_path, regex)
+                    except Exception as e:
+                        self.log(Level.INFO, "Python ERROR at file: " + file.getName())
+                        self.log(Level.INFO, "Python ERROR: " + str(e) + " at file: "+ file.getName())
+                        return IngestModule.ProcessResult.OK
+                    except JavaException as e:
+                        self.log(Level.INFO, "Java ERROR: " + e.getMessage() + " at file: " + file.getName())
+                        return IngestModule.ProcessResult.OK
 
                     self.log(Level.INFO, "Extracted .log file of id " + str(file.getId()))
                     self.log(Level.INFO, "Log info size: " + str(len(log_info)))
 
-                    # Check if any error occurred
-                    error = log_info.get('Error')
-                    if error:
-                        self.log(Level.INFO, "ERROR: " + error + " at file of id: " + str(file.getId()))
-                        return IngestModule.ProcessResult.OK
 
                     for occurrence, counter in log_info.iteritems():
                         art = file.newArtifact(self.art_custom_regex[regex].getTypeID())
@@ -649,11 +647,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     # As long as it has more than one IP address registered
                     # So let's iterate over the dictionary
                     for (ip, protocol, counter) in log_info:
+                        self.log(Level.INFO, "Found IP: "+ip+" with Procotol "+protocol+" and "+str(counter)+" occurrences")
                         # Create artifact
                         ip_art = file.newArtifact(
                             self.art_logged_ip.getTypeID())
-                        self.log(
-                            Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
+                        self.log(Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
 
                         # Add IP type
                         ip_type = self.get_ip_type(ip)
