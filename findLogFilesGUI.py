@@ -48,6 +48,8 @@ import time
 import socket
 
 from java.lang import System
+from java.lang import Class
+from java.lang import Exception as JavaException
 from java.util.logging import Level
 from javax.swing import JCheckBox
 from javax.swing import BoxLayout
@@ -62,8 +64,6 @@ from javax.swing import JButton
 from javax.swing import JList
 from javax.swing import JScrollPane
 from javax.swing import DefaultListModel
-from java.lang import Class
-from java.lang import System
 from java.io import File
 from java.sql import DriverManager, SQLException
 
@@ -566,8 +566,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 except Blackboard.BlackboardException as e:
                     self.log(Level.SEVERE, "Error indexing artifact " +
                              reported_art.getDisplayName())
-                self.log(
-                    Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
+                self.log(Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
 
                 # Fire an event to notify the UI and others that there is a new log artifact
                 IngestServices.getInstance().fireModuleDataEvent(
@@ -594,15 +593,16 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 self.log(Level.INFO, "Copying .log file of id " +
                          str(file.getId()))
 
-                # search with the custom patterns inserted by the user.
-                custom_arts = []
+                # Search with the custom patterns inserted by the user
                 for regex in self.art_custom_regex:
                     # Get the parsed result
                     self.log(Level.INFO, "regex pattern " + str(regex))
                     log_info = logextractor.log_extractor.extract_custom_regex(
                         self.temp_log_path, regex)
+
                     self.log(Level.INFO, "Extracted .log file of id " + str(file.getId()))
                     self.log(Level.INFO, "Log info size: " + str(len(log_info)))
+
                     # Check if any error occurred
                     error = log_info.get('Error')
                     if error:
@@ -633,32 +633,22 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                             ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
                                             self.art_custom_regex[regex], None))
 
-                if(self.local_settings.getCheckLogIPs()):
+                if self.local_settings.getCheckLogIPs():
                     # Get the parsed result
-                    log_info = logextractor.log_extractor.extract_ip_addresses(
-                        self.temp_log_path)
-                    self.log(
-                        Level.INFO, "Extracted .log file of id " + str(file.getId()))
-                    self.log(Level.INFO, "Log info size: " +
-                             str(len(log_info)))
-
-                    # Check if any error occurred
-                    error = 'error' in log_info
-                    if error:
-                        self.log(
-                            Level.INFO, "ERROR: " + log_info[1] + " at file of id: " + str(file.getId()))
+                    try:
+                        log_info = logextractor.log_extractor.extract_ip_addresses(self.temp_log_path)
+                    except (IOError, StandardError) as e:
+                        self.log(Level.INFO, "Python ERROR at file: " + file.getName())
+                        self.log(Level.INFO, "Python ERROR: " + str(e) + " at file: "+ file.getName())
+                        return IngestModule.ProcessResult.OK
+                    except JavaException as e:
+                        self.log(Level.INFO, "Java ERROR: " + e.getMessage() + " at file: " + file.getName())
                         return IngestModule.ProcessResult.OK
 
                     # An ad hoc log can have multiple artifacts
                     # As long as it has more than one IP address registered
                     # So let's iterate over the dictionary
-                    for arr in log_info:
-                        if 'Error' in arr:
-                            self.log(Level.INFO, "ERROR: " + str(arr) + " at IP info array")
-                            return IngestModule.ProcessResult.OK
-                        ip = arr[0]
-                        protocol = arr[1]
-                        counter = arr[2]
+                    for (ip, protocol, counter) in log_info:
                         # Create artifact
                         ip_art = file.newArtifact(
                             self.art_logged_ip.getTypeID())
@@ -673,10 +663,10 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         # Add current domain
                         if(ip_type == 'Public'):
                             try:
-                                domain = socket.gethostbyaddr(arr[0])[0]
+                                domain = socket.gethostbyaddr(ip)[0]
                                 ip_domain = 'Same as IP' if domain == ip else domain
                             except socket.herror as e:
-                                ip_domain = 'Error: ' + str(e)
+                                ip_domain = 'Error: ' + e
                         else:
                             ip_domain = 'N/A'
                         ip_art.addAttribute(BlackboardAttribute(
@@ -1089,7 +1079,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
 
 
 class Regex(object):
-    """docstring for Regex"""
+    """Class for a Regex inserted by the user
+        regex: The RegEx inserted by the user (string)
+        name: Name given by the user (string)
+        active: If the RegEx is active (boolean)
+    """
 
     def __init__(self, name, regex, active=True):
         self.regex = regex
