@@ -1,1 +1,0 @@
-from werExtractor import wer_extractor

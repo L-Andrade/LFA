@@ -42,10 +42,11 @@ import inspect
 import os
 import re
 import logextractor
-import werExtractor
+import MSWExtractor
 import netaddr
 import time
 import socket
+import shutil
 
 from java.lang import System
 from java.lang import Class
@@ -95,37 +96,31 @@ from java.lang import IllegalArgumentException
 
 WER_FOLDER_PATH = "\\Wers"
 LOG_FOLDER_PATH = "\\StandardLogs"
+WSU_FOLDER_PATH = "\\WindowsStartupInfo"
 DB_PATH = "\\guiSettings.db"
-
-# TODO: Rename this to something more specific
 
 
 class LogForensicsForAutopsyFileIngestModuleWithUIFactory(IngestModuleFactoryAdapter):
     def __init__(self):
         self.settings = None
 
-    # TODO: give it a unique name.  Will be shown in module list, logs, etc.
     moduleName = "Log Forensics for Autopsy"
 
     def getModuleDisplayName(self):
         return self.moduleName
 
-    # TODO: Give it a description
     def getModuleDescription(self):
         return "This module searchs for certain log files."
 
     def getModuleVersionNumber(self):
         return "1.3"
 
-    # TODO: Update class name to one that you create below
     def getDefaultIngestJobSettings(self):
         return LogForensicsForAutopsyFileIngestModuleWithUISettings()
 
-    # TODO: Keep enabled only if you need ingest job-specific settings UI
     def hasIngestJobSettingsPanel(self):
         return True
 
-    # TODO: Update class names to ones that you create below
     def getIngestJobSettingsPanel(self, settings):
         if not isinstance(settings, LogForensicsForAutopsyFileIngestModuleWithUISettings):
             raise IllegalArgumentException(
@@ -136,7 +131,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUIFactory(IngestModuleFactoryAda
     def isFileIngestModuleFactory(self):
         return True
 
-    # TODO: Update class name to one that you create below
     def createFileIngestModule(self, ingestOptions):
         return LogForensicsForAutopsyFileIngestModuleWithUI(self.settings)
 
@@ -201,6 +195,10 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             "Create new Artifact EVT File", "TSK_LFA_EVT_FILES", "EVT/EVTX files", skCase)
         self.art_wer_file = self.create_artifact(
             "Create new Artifact WER File", "TSK_LFA_WER_FILES", "WER files", skCase)
+        self.art_windows_startup_file = self.create_artifact(
+            "Create new Artifact Windows Startup File", "TSK_LFA_WIN_SU_FILES", "Startup info files", skCase)
+        self.art_windows_startup_info = self.create_artifact(
+            "Create new Artifact Windows Startup File", "TSK_LFA_WIN_SU_INFO", "Startup processed info", skCase)
 
         self.art_custom_regex = {}
         for idx, regex in enumerate(self.local_settings.getRegexList().toArray()):
@@ -300,7 +298,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute IP protocol")
 
-
         # Create the attribute type IP type, which says if the IP is public or private
         try:
             self.att_ip_type = skCase.addArtifactAttributeType(
@@ -329,12 +326,73 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "Error creating attribute Windows version")
 
-        # Creater custom match content
+        # Create custom match content
         try:
             self.att_custom_match = skCase.addArtifactAttributeType(
                 'TSK_LFA_CUSTOM_MATCH', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Content matched")
         except:
             self.log(Level.INFO, "Error creating attribute custom match")
+
+         # Create custom match content
+        try:
+            self.att_wsu_process_name = skCase.addArtifactAttributeType(
+                'TSK_LFA_WSU_PROCESS_NAME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Name")
+        except:
+            self.log(Level.INFO, "Error creating attribute wsu process name")
+
+        try:
+            self.att_wsu_pid = skCase.addArtifactAttributeType(
+                'TSK_LFA_WSU_PID', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "PID")
+        except:
+            self.log(Level.INFO, "Error creating attribute wsu pid")
+
+        try:
+            self.att_wsu_sits = skCase.addArtifactAttributeType(
+                'TSK_LFA_WSU_SITS', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Started In Trace Sec")
+        except:
+            self.log(Level.INFO, "Error creating attribute wsu sits")
+
+        try:
+            self.att_wsu_start_time = skCase.addArtifactAttributeType(
+                'TSK_LFA_WSU_START_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Start time")
+        except:
+            self.log(Level.INFO, "Error creating attribute wsu start time")
+
+        try:
+            self.att_wsu_cmd_line = skCase.addArtifactAttributeType(
+                'TSK_LFA_WSU_CMD_LINE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Command line")
+        except:
+            self.log(Level.INFO, "Error creating attribute wsu cmd line")
+
+        try:
+            self.att_wsu_disk_usage = skCase.addArtifactAttributeType(
+                'TSK_LFA_WSU_DISK_USAGE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Disk usage in bytes")
+        except:
+            self.log(Level.INFO, "Error creating attribute wsu disk usage")
+
+        try:
+            self.att_wsu_cpu_usage = skCase.addArtifactAttributeType(
+                'TSK_LFA_WSU_CPU_USAGE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "cpu usage in microseconds")
+        except:
+            self.log(Level.INFO, "Error creating attribute wsu cpu usage")
+
+        try:
+            self.att_wsu_ppid = skCase.addArtifactAttributeType(
+                'TSK_LFA_WSU_PPID', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Parent PID")
+        except:
+            self.log(Level.INFO, "Error creating attribute wsu parent pid")
+
+        try:
+            self.att_wsu_parent_start_time = skCase.addArtifactAttributeType(
+                'TSK_LFA_WSU_PARENT_START_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Parent start time")
+        except:
+            self.log(Level.INFO, "Error creating attribute wsu parent start time")
+
+        try:
+            self.att_wsu_parent_name = skCase.addArtifactAttributeType(
+                'TSK_LFA_WSU_PARENT_NAME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Parent name")
+        except:
+            self.log(Level.INFO, "Error creating attribute wsu start time")
 
         # Get Attributes after they are created
         self.att_log_size = skCase.getAttributeType("TSK_LFA_LOG_SIZE")
@@ -359,8 +417,25 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             "TSK_LFA_WINDOWS_VERSION")
         self.att_custom_match = skCase.getAttributeType("TSK_LFA_CUSTOM_MATCH")
 
-        self.temp_dir = Case.getCurrentCase().getTempDirectory()
+        self.att_wsu_process_name = skCase.getAttributeType(
+            "TSK_LFA_WSU_PROCESS_NAME")
+        self.att_wsu_pid = skCase.getAttributeType("TSK_LFA_WSU_PID")
+        self.att_wsu_sits = skCase.getAttributeType("TSK_LFA_WSU_SITS")
+        self.att_wsu_start_time = skCase.getAttributeType(
+            "TSK_LFA_WSU_START_TIME")
+        self.att_wsu_cmd_line = skCase.getAttributeType("TSK_LFA_WSU_CMD_LINE")
+        self.att_wsu_disk_usage = skCase.getAttributeType(
+            "TSK_LFA_WSU_DISK_USAGE")
+        self.att_wsu_cpu_usage = skCase.getAttributeType(
+            "TSK_LFA_WSU_CPU_USAGE")
+        self.att_wsu_ppid = skCase.getAttributeType("TSK_LFA_WSU_PPID")
+        self.att_wsu_parent_start_time = skCase.getAttributeType(
+            "TSK_LFA_WSU_PARENT_START_TIME")
+        self.att_wsu_parent_name = skCase.getAttributeType(
+            "TSK_LFA_WSU_PARENT_NAME")
 
+        self.temp_dir = Case.getCurrentCase().getTempDirectory()
+        self.wsu_patt = re.compile(r'.*s-1-5-21-\d+-\d+\-\d+\-\d+_startupinfo\d\.xml')
         if self.local_settings.getCheckWER():
             # Create wer directory in temp directory, if it exists then continue on processing
             self.log(Level.INFO, "Create .wer directory " + self.temp_dir)
@@ -374,6 +449,16 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             self.log(Level.INFO, "Create .log directory " + self.temp_dir)
             try:
                 os.mkdir(self.temp_dir + LOG_FOLDER_PATH)
+            except:
+                self.log(
+                    Level.INFO, "Logs directory already exists " + self.temp_dir)
+
+        if True:  # self.local_settings.getCheckWSU(): ###TODO: ADD THE CHECKING PART ONCE CHECKBOXES ARE ACTIVE
+            self.log(
+                Level.INFO, "Create windows startup files directory " + self.temp_dir)
+            try:
+                os.mkdir(self.temp_dir + WSU_FOLDER_PATH)
+                
             except:
                 self.log(
                     Level.INFO, "Logs directory already exists " + self.temp_dir)
@@ -398,25 +483,35 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             ((file_name.endswith(".wer")) and self.local_settings.getCheckWER()) or
             (file_name.endswith(".dmp") and self.local_settings.getCheckDmp()) or
             (file_name.endswith(".evtx") and self.local_settings.getCheckEVTx()) or
-                (file_name.endswith(".log") and self.local_settings.getCheckLog())):
+            (file_name.endswith(".log") and self.local_settings.getCheckLog()) or
+                (self.wsu_patt.match(file_name) is not None)):  # TODO:CHECKBOX THING AGAIN
 
             # Get all file artifacts
             skCase = Case.getCurrentCase().getSleuthkitCase()
             # get one list at a time and append them
             werList = skCase.getBlackboardArtifacts(self.art_wer_file.getTypeID(
             )) if skCase.getBlackboardArtifacts(self.art_wer_file.getTypeID()) is not None else []
+
             dmpList = skCase.getBlackboardArtifacts(self.art_dmp_file.getTypeID(
             )) if skCase.getBlackboardArtifacts(self.art_dmp_file.getTypeID()) is not None else []
+
             evtList = skCase.getBlackboardArtifacts(self.art_evt_file.getTypeID(
             )) if skCase.getBlackboardArtifacts(self.art_evt_file.getTypeID()) is not None else []
+
             logList = skCase.getBlackboardArtifacts(self.art_log_file.getTypeID(
             )) if skCase.getBlackboardArtifacts(self.art_log_file.getTypeID()) is not None else []
+
             etlList = skCase.getBlackboardArtifacts(self.art_etl_file.getTypeID(
             )) if skCase.getBlackboardArtifacts(self.art_etl_file.getTypeID()) is not None else []
+
+            wsuList = skCase.getBlackboardArtifacts(self.art_windows_startup_file.getTypeID(
+            )) if skCase.getBlackboardArtifacts(self.art_windows_startup_file.getTypeID()) is not None else []
+
             werList.extend(dmpList)
             werList.extend(evtList)
             werList.extend(logList)
             werList.extend(etlList)
+            werList.extend(wsuList)
             artifact_list = werList
 
             file_path = file.getDataSource().getName() + file.getParentPath() + file.getName()
@@ -451,6 +546,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 generic_art = self.art_etl_file
             elif(file_name.endswith(".evtx")):
                 generic_art = self.art_evt_file
+            elif(self.wsu_patt.match(file_name)):
+                generic_art = self.art_windows_startup_file
 
             # Make an artifact
             art = file.newArtifact(generic_art.getTypeID())
@@ -509,10 +606,13 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
                 # Get the parsed result
                 try:
-                    wer_info = werExtractor.wer_extractor.extract_default_keys(self.temp_wer_path)
-                    self.log(Level.INFO, "Extracted .wer file of id " + str(file.getId()))
+                    wer_info = MSWExtractor.wer_extractor.extract_default_keys(
+                        self.temp_wer_path)
+                    self.log(
+                        Level.INFO, "Extracted .wer file of id " + str(file.getId()))
                 except (Exception, JavaException) as e:
-                    self.log(Level.INFO, "ERROR: Extracting .wer of Id (" + str(file.getId())+"): "+str(e))
+                    self.log(
+                        Level.INFO, "ERROR: Extracting .wer of Id (" + str(file.getId())+"): "+str(e))
                     return IngestModule.ProcessResult.OK
 
                 # Create new program artifact if .wer file is valid
@@ -540,7 +640,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     self.att_windows_ver, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['WindowsVersion'])))
 
                 # Adding dump file search result
-                dmp = werExtractor.wer_extractor.find_dmp_files(
+                dmp = MSWExtractor.wer_extractor.find_dmp_files(
                     self.temp_wer_path)
                 self.log(
                     Level.INFO, "Extracted dump files names from .wer file of id " + str(file.getId()))
@@ -562,7 +662,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 except Blackboard.BlackboardException as e:
                     self.log(Level.SEVERE, "Error indexing artifact " +
                              reported_art.getDisplayName())
-                self.log(Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
+                self.log(
+                    Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
 
                 # Fire an event to notify the UI and others that there is a new log artifact
                 IngestServices.getInstance().fireModuleDataEvent(
@@ -594,28 +695,34 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     # Get the parsed result
                     self.log(Level.INFO, "Regex pattern " + str(regex))
                     try:
-                        log_info = logextractor.log_extractor.extract_custom_regex(self.temp_log_path, regex)
+                        log_info = logextractor.log_extractor.extract_custom_regex(
+                            self.temp_log_path, regex)
                     except Exception as e:
-                        self.log(Level.INFO, "Python ERROR at file: " + file.getName())
-                        self.log(Level.INFO, "Python ERROR: " + str(e) + " at file: "+ file.getName())
+                        self.log(
+                            Level.INFO, "Python ERROR at file: " + file.getName())
+                        self.log(Level.INFO, "Python ERROR: " +
+                                 str(e) + " at file: " + file.getName())
                         return IngestModule.ProcessResult.OK
                     except JavaException as e:
-                        self.log(Level.INFO, "Java ERROR: " + e.getMessage() + " at file: " + file.getName())
+                        self.log(Level.INFO, "Java ERROR: " +
+                                 e.getMessage() + " at file: " + file.getName())
                         return IngestModule.ProcessResult.OK
 
-                    self.log(Level.INFO, "Extracted .log file of id " + str(file.getId()))
-                    self.log(Level.INFO, "Log info size: " + str(len(log_info)))
-
+                    self.log(
+                        Level.INFO, "Extracted .log file of id " + str(file.getId()))
+                    self.log(Level.INFO, "Log info size: " +
+                             str(len(log_info)))
 
                     for occurrence, counter in log_info.iteritems():
-                        art = file.newArtifact(self.art_custom_regex[regex].getTypeID())
+                        art = file.newArtifact(
+                            self.art_custom_regex[regex].getTypeID())
 
                         art.addAttribute(BlackboardAttribute(
                             self.att_custom_match, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(occurrence)))
                         art.addAttribute(BlackboardAttribute(
                             self.att_ip_counter, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(counter)))
                         art.addAttribute(BlackboardAttribute(
-                            self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
+                            self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file_path))
 
                         # Add artifact to Blackboard
                         try:
@@ -634,24 +741,30 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 if self.local_settings.getCheckLogIPs():
                     # Get the parsed result
                     try:
-                        log_info = logextractor.log_extractor.extract_ip_addresses(self.temp_log_path)
+                        log_info = logextractor.log_extractor.extract_ip_addresses(
+                            self.temp_log_path)
                     except (IOError, StandardError) as e:
-                        self.log(Level.INFO, "Python ERROR at file: " + file.getName())
-                        self.log(Level.INFO, "Python ERROR: " + str(e) + " at file: "+ file.getName())
+                        self.log(
+                            Level.INFO, "Python ERROR at file: " + file.getName())
+                        self.log(Level.INFO, "Python ERROR: " +
+                                 str(e) + " at file: " + file.getName())
                         return IngestModule.ProcessResult.OK
                     except JavaException as e:
-                        self.log(Level.INFO, "Java ERROR: " + e.getMessage() + " at file: " + file.getName())
+                        self.log(Level.INFO, "Java ERROR: " +
+                                 e.getMessage() + " at file: " + file.getName())
                         return IngestModule.ProcessResult.OK
 
                     # An ad hoc log can have multiple artifacts
                     # As long as it has more than one IP address registered
                     # So let's iterate over the dictionary
                     for (ip, protocol, counter) in log_info:
-                        self.log(Level.INFO, "Found IP: "+ip+" with Procotol "+protocol+" and "+str(counter)+" occurrences")
+                        self.log(Level.INFO, "Found IP: "+ip+" with Procotol " +
+                                 protocol+" and "+str(counter)+" occurrences")
                         # Create artifact
                         ip_art = file.newArtifact(
                             self.art_logged_ip.getTypeID())
-                        self.log(Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
+                        self.log(
+                            Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
 
                         # Add IP type
                         ip_type = self.get_ip_type(ip)
@@ -688,7 +801,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
                         # Add file path to artifact
                         ip_art.addAttribute(BlackboardAttribute(
-                            self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getParentPath() + file.getName()))
+                            self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file_path))
 
                         # Add artifact to Blackboard
                         try:
@@ -704,11 +817,104 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         IngestServices.getInstance().fireModuleDataEvent(
                             ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
                                             self.art_logged_ip, None))
+                os.remove(self.temp_log_path)
+
+
+            ######################################################################################
+            #          _______             _______ _________ _        _______  _______           #
+            #|\     /|(  ____ \|\     /|  (  ____ \\__   __/( \      (  ____ \(  ____ \          #
+            #| )   ( || (    \/| )   ( |  | (    \/   ) (   | (      | (    \/| (    \/          #
+            #| | _ | || (_____ | |   | |  | (__       | |   | |      | (__    | (_____           #
+            #| |( )| |(_____  )| |   | |  |  __)      | |   | |      |  __)   (_____  )          #
+            #| || || |      ) || |   | |  | (         | |   | |      | (            ) |          #
+            #| () () |/\____) || (___) |  | )      ___) (___| (____/\| (____/\/\____) |          #
+            #(_______)\_______)(_______)  |/       \_______/(_______/(_______/\_______)          #
+            ###################################################################################### 
+            if(self.wsu_patt.match(file_name) is not None):
+                self.temp_wsu_path = os.path.join(
+                    self.temp_dir + WSU_FOLDER_PATH, str(file.getId()))
+                ContentUtils.writeToFile(file, File(self.temp_wsu_path))
+                self.log(Level.INFO, "Copying startup file of id " +
+                         str(file.getId()))
+                self.log(Level.INFO, "WSU file being processed")
+                try:
+                    wsu_info = MSWExtractor.startup_extractor.parse_startup_info(
+                        self.temp_wsu_path)
+                except Exception as e:
+                    self.log(
+                        Level.INFO, "Python ERROR at file: " + file.getName())
+                    self.log(Level.INFO, "Python ERROR: " +
+                             str(e) + " at file: " + file.getName())
+                    return IngestModule.ProcessResult.OK
+                except JavaException as e:
+                    self.log(Level.INFO, "Java ERROR: " +
+                             e.getMessage() + " at file: " + file.getName())
+                    return IngestModule.ProcessResult.OK
+                self.log(
+                    Level.INFO, "Extracted wsu file of id " + str(file.getId()))
+                self.log(Level.INFO, "wsu info size: " +
+                         str(len(wsu_info)))
+                
+                for process in wsu_info:
+                    art = file.newArtifact(
+                            self.art_windows_startup_info.getTypeID())
+
+
+                    art.addAttribute(BlackboardAttribute(
+                        self.att_wsu_process_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(process.process_name)))
+
+                    art.addAttribute(BlackboardAttribute(
+                        self.att_wsu_pid, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(process.pid)))
+
+                    art.addAttribute(BlackboardAttribute(
+                        self.att_wsu_sits, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(process.started_trace_in_sec)))    
+                    
+                    art.addAttribute(BlackboardAttribute(
+                        self.att_wsu_start_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(process.start_time)))
+
+                    art.addAttribute(BlackboardAttribute(
+                        self.att_wsu_cmd_line, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(process.command_line)))
+
+                    art.addAttribute(BlackboardAttribute(
+                        self.att_wsu_disk_usage, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(process.disk_usage)))
+
+                    art.addAttribute(BlackboardAttribute(
+                        self.att_wsu_cpu_usage, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(process.cpu_usage)))
+
+                    art.addAttribute(BlackboardAttribute(
+                        self.att_wsu_ppid, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(process.parent_PID)))
+
+                    art.addAttribute(BlackboardAttribute(
+                        self.att_wsu_parent_start_time, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(process.parent_start_time)))
+
+                    art.addAttribute(BlackboardAttribute(
+                        self.att_wsu_parent_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(process.parent_name)))
+               
+                    # Add artifact to Blackboard
+                    try:
+                        # Index the artifact for keyword search
+                        blackboard.indexArtifact(art)
+                    except Blackboard.BlackboardException as e:
+                        self.log(Level.SEVERE, "Error indexing artifact " +
+                                 art.getDisplayName())
+                    self.log(
+                        Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
+                    # Fire an event to notify the UI and others that there is a new log artifact
+                    IngestServices.getInstance().fireModuleDataEvent(
+                        ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
+                                        self.art_windows_startup_info, None))
+                os.remove(self.temp_wsu_path)
+            else:
+                self.log(Level.INFO, "WSU pls work " + str(file_name) + '    ' + str(self.wsu_patt.match(file_name)))
+                                                                                  
+           
+            
 
         return IngestModule.ProcessResult.OK
 
     # Where any shutdown code is run and resources are freed.
     def shutDown(self):
+       
         elapsed_time = time.time() - self.start_time
         self.log(Level.INFO, "LFA execution time: "+str(elapsed_time))
         # Inform user of number of files found
@@ -834,7 +1040,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
             self.textFieldRegexName.setText("")
             self.updateGlobalRegexList()
         except re.error:
-            self.labelErrorMessage.setText("Could not compile that RegEx.")            
+            self.labelErrorMessage.setText("Could not compile that RegEx.")
 
     def removeRegexFromList(self, event):
         regex = self.listRegex.getSelectedValue()
