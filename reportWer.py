@@ -58,11 +58,13 @@ from javax.swing import BoxLayout
 XLS_REPORTED_HEADER_COUNT = 7
 XLS_IPS_HEADER_COUNT = 7
 XLS_REGEX_HEADER_COUNT = 3
+XLS_WSU_HEADER_COUNT = 9
 WS_NAME_STATISTICS = 'Statistics'
 WS_NAME_STATISTICS_DATA = 'Raw data'
 WS_NAME_REPORTED_PROGRAMS = 'Reported programs'
 WS_NAME_LOGGED_IPS = 'Logged IPs'
 WS_NAME_CUSTOM_REGEX = 'Custom RegExs'
+WS_NAME_WSU = 'Windows Startup'
 
 class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
@@ -89,6 +91,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
     def getRelativeFilePathRegExHTML(self):
         return "LFA_RegEx" + Case.getCurrentCase().getName() + ".html"
+
+    def getRelativeFilePathWSUHTML(self):
+        return "LFA_WSU" + Case.getCurrentCase().getName() + ".html"
 
     def getRelativeFilePathDFXML(self):
         return "LFA_" + Case.getCurrentCase().getName() + ".xml"
@@ -147,6 +152,43 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         return row
 
+    def insert_top20_column_chart(self,name,xls_wb,xls_ws_stats,xls_ws_stats_data,data,data_cat_col,data_val_col,pos_x,pos_y):
+        data_len = len(data)
+        start_cell_row = data_len-20 if data_len >= 20 else 0
+        self.insert_column_chart(name,xls_wb,xls_ws_stats,xls_ws_stats_data,data,start_cell_row,data_cat_col,data_val_col,pos_x,pos_y)
+
+    def insert_column_chart(self,name,xls_wb,xls_ws_stats,xls_ws_stats_data,data,data_row,data_cat_col,data_val_col,pos_x,pos_y):
+        list_data = [[], []]
+        data_len = len(data)
+
+        for (key,value) in sorted(data.iteritems(), key = lambda (k,v): (v,k)):
+            list_data[0].append(key)
+            list_data[1].append(value)
+
+        xls_ws_stats_data.write_column(0, data_cat_col, list_data[0])
+        xls_ws_stats_data.write_column(0, data_val_col, list_data[1])
+
+        chart = xls_wb.add_chart({'type': 'column'})
+
+        chart.set_x_axis({
+            'name': name,
+            'name_font': {'size': 14, 'bold': True},
+            'num_font':  {'italic': True }
+        })
+
+        chart.add_series({
+            'categories': [WS_NAME_STATISTICS_DATA, data_row, data_cat_col, data_len, data_cat_col],
+            'values':     [WS_NAME_STATISTICS_DATA, data_row, data_val_col, data_len, data_val_col],
+            'gap': 150,
+            'data_labels': {'value': True}
+        })
+        number_of_elements = data_len - data_row
+        chart_width = int(round(float((480*(number_of_elements+5))/20)))
+        self.log(Level.INFO, "Num Elements: "+str(number_of_elements)+" | Width: "+str(chart_width))
+        chart.set_size({'width': chart_width, 'height': 300})
+
+        xls_ws_stats.insert_chart(pos_x,pos_y, chart)
+
     # The 'baseReportDir' object being passed in is a string with the directory that reports are being stored in.   Report should go into baseReportDir + getRelativeFilePath().
     # The 'progressBar' object is of type ReportProgressPanel.
     #   See: http://sleuthkit.org/autopsy/docs/api-docs/4.4/classorg_1_1sleuthkit_1_1autopsy_1_1report_1_1_report_progress_panel.html
@@ -174,13 +216,14 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # Get artifact lists
         art_list_reported_progs = skCase.getBlackboardArtifacts("TSK_LFA_REPORTED_PROGRAMS")
         art_list_logged_ips = skCase.getBlackboardArtifacts("TSK_LFA_LOG_FILE_IP")
+        art_list_wsu = skCase.getBlackboardArtifacts("TSK_LFA_WIN_SU_INFO")
 
         # Get artifact list regarding custom RegExs
         # Had to dig in to Autopsy source code for database knowledge...
         art_list_custom_regex = skCase.getMatchingArtifacts("JOIN blackboard_artifact_types AS types ON blackboard_artifacts.artifact_type_id = types.artifact_type_id WHERE types.type_name LIKE 'TSK_LFA_CUSTOM_REGEX_%'")
         self.log(Level.INFO, 'Got RegEx artifact list: '+str(len(art_list_custom_regex)))
 
-        total_artifact_count = len(art_list_reported_progs) + len(art_list_logged_ips) + len(art_list_custom_regex)
+        total_artifact_count = len(art_list_reported_progs) + len(art_list_logged_ips) + len(art_list_custom_regex) + len(art_list_wsu)
 
 
         # Dividing by ten because progress bar shouldn't be updated too frequently
@@ -199,12 +242,14 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         progressBar.increment()
         progressBar.updateStatusLabel("Creating report(s)")
 
+        # Init variables to avoid undefined errors
         html_programs = None
         html_ips = None
         html_regex = None
         xls_ws_reported = None
         xls_ws_logged_ips = None
         xls_ws_regex = None
+        xls_ws_wsu = None
         dfxml = None
 
         # Init reports
@@ -213,10 +258,12 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             html_file_name = os.path.join(baseReportDir, self.getRelativeFilePath())
             html_file_name_ips = os.path.join(baseReportDir, self.getRelativeFilePathIPsHTML())
             html_file_name_regex = os.path.join(baseReportDir, self.getRelativeFilePathRegExHTML())
+            html_file_name_wsu = os.path.join(baseReportDir, self.getRelativeFilePathWSUHTML())
             # Get template path
             template_name_programs = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_programs.html")
             template_name_ips = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_ips.html")
             template_name_regex = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_regex.html")
+            template_name_wsu = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_wsu.html")
             
             # Open template HTML
             # The template has a table and a basic interface to show results
@@ -232,6 +279,10 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 txt = inf.read()
                 html_regex = bs4.BeautifulSoup(txt)
 
+            with open(template_name_wsu) as inf:
+                txt = inf.read()
+                html_wsu = bs4.BeautifulSoup(txt)
+
         if generateXLS:
             # Get xls_file_name
             xls_file_name = os.path.join(baseReportDir, self.getRelativeFilePathXLS())
@@ -241,6 +292,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             xls_ws_reported = report_xls_wb.add_worksheet(WS_NAME_REPORTED_PROGRAMS)
             xls_ws_logged_ips = report_xls_wb.add_worksheet(WS_NAME_LOGGED_IPS)
             xls_ws_regex = report_xls_wb.add_worksheet(WS_NAME_CUSTOM_REGEX)
+            xls_ws_wsu = report_xls_wb.add_worksheet(WS_NAME_WSU)
 
         if generateDFXML:
             dfxml_path = os.path.join(baseReportDir, self.getRelativeFilePathDFXML())
@@ -298,7 +350,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             # Search for the AppPath, found in the .wer, in the datasource
             data_source = artifact.getDataSource()
-            files_found = file_manager.findFiles(data_source, reported_app_path)
+            # files_found = file_manager.findFiles(data_source, reported_app_path)
+            # Delete next line and uncomment line before, testing only!! todo
+            files_found = None
 
             # Check if the reported program was found
             if files_found:
@@ -512,6 +566,56 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                                                 {'header': 'Log path'}
                                             ]})
 
+        #############################################################
+        # __          __ _____  _                _                  #   
+        # \ \        / // ____|| |              | |                 #
+        #  \ \  /\  / /| (___  | |_  __ _  _ __ | |_  _   _  _ __   #
+        #   \ \/  \/ /  \___ \ | __|/ _` || '__|| __|| | | || '_ \  #
+        #    \  /\  /   ____) || |_| (_| || |   | |_ | |_| || |_) | #
+        #     \/  \/   |_____/  \__|\__,_||_|    \__| \__,_|| .__/  #
+        #                                                   | |     #
+        #                                                   |_|     #
+        #############################################################
+        
+        if art_list_wsu:
+            progressBar.updateStatusLabel("Going through Windows Startup artifacts now...")
+                                  
+            # Reset counters
+            art_count = 0
+            xls_row_count = 1
+
+            # Create a table row for each attribute
+            for artifact in art_list_wsu:
+                art_count += 1
+                # Function returns an HTML row in case we're doing a HTML report
+                # So that we can add more info to that row reference if required
+                # Not required for Excel because it can be done with coordinates
+                row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_wsu, xls_ws_wsu, dfxml)
+                
+                if generateXLS:
+                    xls_row_count += 1
+
+                if generateHTML:
+                    # Select tag with ID regextable - 0 because report_html.select returns an array
+                    table = html_wsu.select("#wsutable")[0]
+                    table.append(row)
+
+            # Add headers to XLS
+            if generateXLS:
+                # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
+                xls_ws_wsu.add_table(0,0,xls_row_count-1,XLS_WSU_HEADER_COUNT-1, 
+                                                {'columns':[
+                                                    {'header': 'Name'},
+                                                    {'header': 'PID'},
+                                                    {'header': 'Started in trace sec'},
+                                                    {'header': 'Start time'},
+                                                    {'header': 'Command line'},
+                                                    {'header': 'Disk usage'},
+                                                    {'header': 'CPU usage'},
+                                                    {'header': 'Parent PID'},
+                                                    {'header': 'Parent start time'},
+                                                    {'header': 'Parent name'}
+                                                ]})
 
         #########################################################################
         #   _____                                _____  _          _            #
@@ -563,23 +667,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Generate statistics charts
             xls_ws_statistics = report_xls_wb.add_worksheet(WS_NAME_STATISTICS)
             xls_ws_statistics_data = report_xls_wb.add_worksheet(WS_NAME_STATISTICS_DATA)
-            chart_ips_top20 = report_xls_wb.add_chart({'type': 'column'})
             chart_event_name = report_xls_wb.add_chart({'type': 'bar'})
             chart_is_detected = report_xls_wb.add_chart({'type': 'pie'})
             chart_ip_version_occurrences = report_xls_wb.add_chart({'type': 'pie'})
-            chart_ip_file_occur_top20 = report_xls_wb.add_chart({'type': 'column'})
-
-            if not generateOnlyTop20:
-                chart_ips = report_xls_wb.add_chart({'type': 'column'})
-                chart_ip_file_occur = report_xls_wb.add_chart({'type': 'column'})
-
-            # Change titles
-            chart_ips_top20.set_x_axis({
-                'name': 'Top 20 IP address occurrences',
-                'name_font': {'size': 14, 'bold': True},
-                'num_font':  {'italic': True }
-            })
-
 
             chart_event_name.set_x_axis({
                 'name': 'Event name occurrences',
@@ -590,43 +680,14 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             chart_is_detected.set_title({'name': 'Programs detected in datasource'})
             chart_ip_version_occurrences.set_title({'name': 'IP occurrences by version'})
 
-            chart_ip_file_occur_top20.set_x_axis({
-                'name': 'Top 20 IP individual file occurrences',
-                'name_font': {'size': 14, 'bold': True},
-                'num_font':  {'italic': True }
-            })
-
-            if not generateOnlyTop20:
-                chart_ips.set_x_axis({
-                    'name': 'Rest of IP address occurrences',
-                    'name_font': {'size': 14, 'bold': True},
-                    'num_font':  {'size': 8, 'italic': True }
-                })
-                chart_ip_file_occur.set_x_axis({
-                    'name': 'IP individual file occurrences (appears in how many files)',
-                    'name_font': {'size': 14, 'bold': True},
-                    'num_font':  {'size': 8, 'italic': True }
-                })
-
             # Row counter
             xls_row_count = 0
             # An array with two arrays inside
             # First array will contain IPs (Categories)
             # Second will contain the IP's counter (Values)
-            ip_data = [[], []]
-            event_data = [[], []]
-            ip_file_data = [[], []]
             is_detected_data = [['Detected', 'Not detected'], [programs_detected, len(art_list_reported_progs)-programs_detected]]
             ip_version_occurs_data = [['IPv4', 'IPv6'], [ipv4_occurrences, ipv6_occurrences]]
-            # Iterate over IP dictionary, sorted by ascending counter
-            for (ip,counter) in sorted(ip_dictionary.iteritems(), key = lambda (k,v): (v,k)):
-                ip_data[0].append(ip)
-                ip_data[1].append(counter)
-
-            # Iterate over IP dictionary, sorted by ascending counter
-            for (ip,ip_file_counter) in sorted(ip_file_dictionary.iteritems(), key = lambda (k,v): (v,k)):
-                ip_file_data[0].append(ip)
-                ip_file_data[1].append(ip_file_counter)
+            event_data = [[],[]]
 
             # Iterate over Event dictionary, sorted by ascending counter
             for (event,counter) in sorted(event_dictionary.iteritems(), key = lambda (k,v): (v,k)):
@@ -637,73 +698,17 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Add its chart to the report
             for i in xrange(len(array_ip_dicts_by_type)):
                 ip_type_str = ip_type_arr_str[i]
-                ip_by_type_data = [[], []]
-                dict_len = len(array_ip_dicts_by_type[i])
-                for (ip,ip_by_type_counter) in sorted(array_ip_dicts_by_type[i].iteritems(), key = lambda (k,v): (v,k)):
-                    ip_by_type_data[0].append(ip)
-                    ip_by_type_data[1].append(ip_by_type_counter)
+                chart_name = 'Top 20 '+ ip_type_str +' IP address occurrences'
 
-                xls_ws_statistics_data.write_column(0, 8+i*2, ip_by_type_data[0])
-                xls_ws_statistics_data.write_column(0, 9+i*2, ip_by_type_data[1])
-
-                chart_ips_by_type_top20 = report_xls_wb.add_chart({'type': 'column'})
-
-                chart_ips_by_type_top20.set_x_axis({
-                    'name': 'Top 20 '+ ip_type_str +' IP address occurrences',
-                    'name_font': {'size': 14, 'bold': True},
-                    'num_font':  {'italic': True }
-                })
-                start_cell_row = dict_len-20 if dict_len >= 20 else 0
-                chart_ips_by_type_top20.add_series({
-                    'categories': [WS_NAME_STATISTICS_DATA, start_cell_row, 8+i*2, dict_len, 8+i*2],
-                    'values':     [WS_NAME_STATISTICS_DATA, start_cell_row, 9+i*2, dict_len, 9+i*2],
-                    'gap': 150,
-                    'data_labels': {'value': True}
-                })
-
-                xls_ws_statistics.insert_chart(0,26+i*10, chart_ips_by_type_top20)
+                self.insert_top20_column_chart(chart_name,report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,array_ip_dicts_by_type[i],8+i*2,9+i*2,0,18+i*10)
 
             # Same deal with the IP version
             for i in xrange(len(array_ip_dicts_by_version)):
                 ip_version_str = ip_version_arr_str[i]
-                ip_by_version_data = [[], []]
-                dict_len = len(array_ip_dicts_by_version[i])
-                for (ip,ip_by_version_counter) in sorted(array_ip_dicts_by_version[i].iteritems(), key = lambda (k,v): (v,k)):
-                    ip_by_version_data[0].append(ip)
-                    ip_by_version_data[1].append(ip_by_version_counter)
+                chart_name = 'Top 20 '+ ip_version_str +' IP address occurrences'
+                self.insert_top20_column_chart(chart_name,report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,array_ip_dicts_by_version[i],18+i*2,19+i*2,35,0+i*2)
 
-                xls_ws_statistics_data.write_column(0, 18+i*2, ip_by_version_data[0])
-                xls_ws_statistics_data.write_column(0, 19+i*2, ip_by_version_data[1])
-
-                chart_ips_by_version_top20 = report_xls_wb.add_chart({'type': 'column'})
-
-                # Double the width, as occurrences can be large numbers
-                chart_ips_by_version_top20.set_size({'width': 480*2})
-
-                chart_ips_by_version_top20.set_x_axis({
-                    'name': 'Top 20 '+ ip_version_str +' IP address occurrences',
-                    'name_font': {'size': 14, 'bold': True},
-                    'num_font':  {'italic': True }
-                })
-
-                start_cell_row = dict_len-20 if dict_len >= 20 else 0
-                chart_ips_by_version_top20.add_series({
-                    'categories': [WS_NAME_STATISTICS_DATA, start_cell_row, 18+i*2, dict_len, 18+i*2],
-                    'values':     [WS_NAME_STATISTICS_DATA, start_cell_row, 19+i*2, dict_len, 19+i*2],
-                    'gap': 150,
-                    'data_labels': {'value': True}
-                })
-
-                # Around I50
-                xls_ws_statistics.insert_chart(49,8+i*20, chart_ips_by_version_top20)
-
-            ip_dict_len = len(ip_dictionary)
             event_dict_len = len(event_dictionary)
-            ip_file_dict_len = len(ip_file_dictionary)
-
-            # Write values in two seperate columns
-            xls_ws_statistics_data.write_column(0, 0, ip_data[0])
-            xls_ws_statistics_data.write_column(0, 1, ip_data[1])
 
             xls_ws_statistics_data.write_column(0, 2, event_data[0])
             xls_ws_statistics_data.write_column(0, 3, event_data[1])
@@ -714,49 +719,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             xls_ws_statistics_data.write_column(2, 4, ip_version_occurs_data[0])
             xls_ws_statistics_data.write_column(2, 5, ip_version_occurs_data[1])
 
-            xls_ws_statistics_data.write_column(0, 6, ip_file_data[0])
-            xls_ws_statistics_data.write_column(0, 7, ip_file_data[1])
 
-            # Create series
-
-            # All data except top 20
-            # Default chart width by height is 480 x 288
-            # 480 is enough for 20 records
-            # So, we're going to calculate how much width is necessary
-            # For the total amount of IPs (except top 20) we have
-            if not generateOnlyTop20:
-                chart_ips_width = int(round(float((480*(ip_dict_len-20))/20)))
-                chart_ips.add_series({
-                    'categories': [WS_NAME_STATISTICS_DATA, 0, 0, ip_dict_len-20, 0],
-                    'values':     [WS_NAME_STATISTICS_DATA, 0, 1, ip_dict_len-20, 1],
-                    'gap': 100,
-                    'data_labels': {'value': True}
-                })
-
-                # Also doubling height
-                chart_ips.set_size({'width': chart_ips_width, 'height': 576})
-
-                # IP mentioned in 'x' files
-                chart_ip_file_width = int(round(float((480*(ip_file_dict_len))/20)))
-                chart_ip_file_occur.set_size({'width': chart_ip_file_width})
-                chart_ip_file_occur.add_series({
-                    'categories': [WS_NAME_STATISTICS_DATA, 0, 6, ip_file_dict_len-20, 6],
-                    'values':     [WS_NAME_STATISTICS_DATA, 0, 7, ip_file_dict_len-20, 7],
-                    'gap': 150,
-                    'data_labels': {'value': True}
-                })
-
-            # Only top 20
-            chart_ips_top20.add_series({
-                'categories': [WS_NAME_STATISTICS_DATA, ip_dict_len-20, 0, ip_dict_len, 0], #'=Sheet4!$A$' + (ip_dict_len-20) + ':$A$'+ip_dict_len,
-                'values':     [WS_NAME_STATISTICS_DATA, ip_dict_len-20, 1, ip_dict_len, 1], #'=Sheet4!$B$' + (ip_dict_len-20) + ':$B$'+ip_dict_len,
-                'gap': 150,
-                'data_labels': {'value': True}
-            })
-
-            # Doubling width so data labels are readable
-            # And since the other IP chart is so big, it should be fine
-            chart_ips_top20.set_size({'width': 960})
 
             chart_event_name.add_series({
                 'categories': [WS_NAME_STATISTICS_DATA, 0, 2, event_dict_len, 2], 
@@ -778,33 +741,21 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 'data_labels': {'value': True}
             })
 
-            # IP mentioned in 'x' files top20
-            chart_ip_file_occur_top20.set_size({'width': 960})
-            chart_ip_file_occur_top20.add_series({
-                'categories': [WS_NAME_STATISTICS_DATA, ip_file_dict_len-20, 6, ip_file_dict_len, 6],
-                'values':     [WS_NAME_STATISTICS_DATA, ip_file_dict_len-20, 7, ip_file_dict_len, 7],
-                'gap': 150,
-                'data_labels': {'value': True}
-            })
-
             xls_ws_statistics.write(0, 0, reported_info_str)
-
             xls_ws_statistics.write(1, 0, ips_info_str)
 
-            xls_ws_statistics.insert_chart('A3', chart_ips_top20)
+            xls_ws_statistics.insert_chart(0,10, chart_event_name)
 
-            xls_ws_statistics.insert_chart('Q3', chart_event_name)
+            xls_ws_statistics.insert_chart(18,18, chart_is_detected)
 
-            xls_ws_statistics.insert_chart('A50', chart_is_detected)
+            xls_ws_statistics.insert_chart(18,10, chart_ip_version_occurrences)
 
-            xls_ws_statistics.insert_chart('Q65', chart_ip_version_occurrences)
-
-            xls_ws_statistics.insert_chart('A65', chart_ip_file_occur_top20)
+            self.insert_top20_column_chart('Top 20 IP addresses',report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,ip_dictionary,0,1,2,0)
+            self.insert_top20_column_chart('Top 20 IP address file occurrences',report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,ip_file_dictionary,6,7,18,0)
 
             if not generateOnlyTop20:
-                xls_ws_statistics.insert_chart('A20', chart_ips)
-
-                xls_ws_statistics.insert_chart('A80', chart_ip_file_occur)
+                self.insert_column_chart('IP address occurrences',report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,ip_dictionary,0,22,23,64,0)
+                self.insert_column_chart('IP address file occurrences', report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,ip_file_dictionary,0,24,25,79,0)
 
             report_xls_wb.close()
             self.log(Level.INFO, "Saving Excel Report to: "+xls_file_name)
