@@ -21,8 +21,8 @@
                         <li><a href="#" id="programslink">Reported programs</a></li>
                         <li><a href="#" id="loggedipslink">Logged IPs</a></li>
                         <li><a href="#" id="customregexslink">Custom RegExs</a></li>
-                        <li class="active"><a href="#" id="customwsulink">Windows Startup <span class="sr-only">(current)</span></a></li>
-                        <li><a href="#" id="fileslink">All files</a></li>
+                        <li><a href="#" id="customwsulink">Windows Startup</a></li>
+                        <li class="active"><a href="#" id="fileslink">All files <span class="sr-only">(current)</span></a></li>
                     </ul>
                 </div>
             </div>
@@ -31,24 +31,20 @@
     <div class="container-fluid">
         <div class="panel panel-default">
         <!-- Default panel contents -->
-            <div class="panel-heading">Windows Startup Information</div>
+            <div class="panel-heading">List of reported programs</div>
             <div class="panel-body">
-                <p id="tablewsuinfo"></p>
+                <p id="tableinfo"></p>
             </div>
             <!-- Table -->
-            <table class="table" id="wsutable">
+            <table class="table" id="filestable">
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>PID</th>
-                        <th>Started in trace sec</th>
-                        <th>Start time</th>
-                        <th>Command line</th>
-                        <th>Disk usage</th>
-                        <th>CPU usage</th>
-                        <th>Parent PID</th>
-                        <th>Parent start time</th>
-                        <th>Parent name</th>
+                        <th>Size</th>
+                        <th>Create date</th>
+                        <th>Last modified</th>
+                        <th>Last access</th>
+                        <th>File path</th>
+                        <th>File type</th>
                     </tr>
                 </thead>
                 <tbody>

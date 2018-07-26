@@ -59,9 +59,11 @@ XLS_REPORTED_HEADER_COUNT = 7
 XLS_IPS_HEADER_COUNT = 7
 XLS_REGEX_HEADER_COUNT = 3
 XLS_WSU_HEADER_COUNT = 9
+XLS_FILES_HEADER_COUNT = 6
 WS_NAME_STATISTICS = 'Statistics'
 WS_NAME_STATISTICS_DATA = 'Raw data'
 WS_NAME_REPORTED_PROGRAMS = 'Reported programs'
+WS_NAME_FILES = 'All files'
 WS_NAME_LOGGED_IPS = 'Logged IPs'
 WS_NAME_CUSTOM_REGEX = 'Custom RegExs'
 WS_NAME_WSU = 'Windows Startup'
@@ -95,13 +97,16 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
     def getRelativeFilePathWSUHTML(self):
         return "LFA_WSU" + Case.getCurrentCase().getName() + ".html"
 
+    def getRelativeFilePathFilesHTML(self):
+        return "LFA_Files" + Case.getCurrentCase().getName() + ".html"
+
     def getRelativeFilePathDFXML(self):
         return "LFA_" + Case.getCurrentCase().getName() + ".xml"
 
     def getRelativeFilePathXLS(self):
         return "LFA_" + Case.getCurrentCase().getName() + ".xlsx"
 
-    def write_artifact_to_report(self, skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_file, xls_ws, dfxml):
+    def write_artifact_to_report(self, skCase, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_file, xls_ws):
         row = None
         # Create row
         if generateHTML:
@@ -110,26 +115,10 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         if generateXLS:
             xls_col_count = 0
 
-        if generateDFXML:
-            dfxml_src = dfxml.generateSource(artifact.getDataSource().getName())
-
-            source_file = skCase.getAbstractFileById(artifact.getObjectID())
-            filename, file_extension = os.path.splitext(source_file.getName())
-
-            fo = dfxml.newFileObject({'filename': filename+file_extension})
-            dfxml.addParamsToNode(fo, 'mtime', datetime.datetime.fromtimestamp(source_file.getMtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
-            dfxml.addParamsToNode(fo, 'ctime', datetime.datetime.fromtimestamp(source_file.getCtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
-            dfxml.addParamsToNode(fo, 'atime', datetime.datetime.fromtimestamp(source_file.getAtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
-            dfxml.addParamsToNode(fo, 'crtime', datetime.datetime.fromtimestamp(source_file.getCrtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
-            
-            md5 = source_file.getMd5Hash() 
-            if md5 is not None:
-                dfxml.addHashDigestToFO(fo, ['MD5',md5])
-
         # Get artifact's attributes
         attributes = artifact.getAttributes()
         for attribute in attributes:
-            attribute_value = attribute.getValueString()
+            attribute_value = attribute.getDisplayString()
             # Create a cell and add attribute value as content
             if generateHTML:
                 cell = html_file.new_tag("td")
@@ -142,15 +131,27 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 xls_ws.write(xls_row_count, xls_col_count, attribute_value)
                 xls_col_count += 1
 
-            if generateDFXML:
-                att = {'type': attribute.getAttributeTypeDisplayName()}
-                dfxml.addParamsToNode(fo, 'dc:attribute', attribute_value, att)
-
         # Update progress bar every 10 artifacts
         if art_count % 10 == 0:
             progressBar.increment()
 
         return row
+
+    def write_artifact_to_dfxml_report(self, skCase, progressBar, artifact, dfxml):
+        dfxml_src = dfxml.generateSource(artifact.getDataSource().getName())
+
+        source_file = skCase.getAbstractFileById(artifact.getObjectID())
+        filename, file_extension = os.path.splitext(source_file.getName())
+
+        fo = dfxml.newFileObject({'filename': filename+file_extension})
+        dfxml.addParamsToNode(fo, 'mtime', datetime.datetime.fromtimestamp(source_file.getMtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
+        dfxml.addParamsToNode(fo, 'ctime', datetime.datetime.fromtimestamp(source_file.getCtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
+        dfxml.addParamsToNode(fo, 'atime', datetime.datetime.fromtimestamp(source_file.getAtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
+        dfxml.addParamsToNode(fo, 'crtime', datetime.datetime.fromtimestamp(source_file.getCrtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
+        
+        md5 = source_file.getMd5Hash() 
+        if md5 is not None:
+            dfxml.addHashDigestToFO(fo, ['MD5',md5])
 
     def insert_top20_column_chart(self,name,xls_wb,xls_ws_stats,xls_ws_stats_data,data,data_cat_col,data_val_col,pos_x,pos_y):
         data_len = len(data)
@@ -219,7 +220,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # Configure progress bar for 2 tasks
         progressBar.setIndeterminate(False)
         progressBar.start()
-        progressBar.updateStatusLabel("Getting files and counting")
+        progressBar.updateStatusLabel("Getting files and artifacts...")
 
         skCase = Case.getCurrentCase().getSleuthkitCase()
         services = Services(skCase)
@@ -236,18 +237,29 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         art_list_logged_ips = skCase.getBlackboardArtifacts("TSK_LFA_LOG_FILE_IP")
         art_list_wsu = skCase.getBlackboardArtifacts("TSK_LFA_WIN_SU_INFO")
 
+        # For the next lists of files, we're doing a different approach
+        # We want a table with all the type of log files
+        # So, we're doing a list of lists with all types of files
+        list_file_types = ['EVTx', 'ETL', 'WER', 'Dmp', 'Ad hoc logs', 'Windows Startup']
+        list_art_list_files = [skCase.getBlackboardArtifacts('TSK_LFA_EVT_FILES'), skCase.getBlackboardArtifacts('TSK_LFA_WER_FILES'),
+             skCase.getBlackboardArtifacts('TSK_LFA_ETL_FILES'), skCase.getBlackboardArtifacts('TSK_LFA_DMP_FILES'),
+             skCase.getBlackboardArtifacts('TSK_LFA_LOG_FILES'), skCase.getBlackboardArtifacts('TSK_LFA_WIN_SU_FILES')]
+
         # Get artifact list regarding custom RegExs
         # Had to dig in to Autopsy source code for database knowledge...
         art_list_custom_regex = skCase.getMatchingArtifacts("JOIN blackboard_artifact_types AS types ON blackboard_artifacts.artifact_type_id = types.artifact_type_id WHERE types.type_name LIKE 'TSK_LFA_CUSTOM_REGEX_%'")
         self.log(Level.INFO, 'Got RegEx artifact list: '+str(len(art_list_custom_regex)))
 
-        total_artifact_count = len(art_list_reported_progs) + len(art_list_logged_ips) + len(art_list_custom_regex) + len(art_list_wsu)
+        len_files = 0
+        for art_list in list_art_list_files:
+            len_files += len(art_list)
+        total_artifact_count = len(art_list_reported_progs) + len(art_list_logged_ips) + len(art_list_custom_regex) + len(art_list_wsu) + len_files
 
 
         # Dividing by ten because progress bar shouldn't be updated too frequently
         # So we'll update it every 10 artifacts
-        # Plus 3 for 3 additional steps
-        max_progress = (ceil(total_artifact_count / 10) + 3)
+        # Plus 2 for 2 additional steps
+        max_progress = (ceil(total_artifact_count / 10) + 2)
         progressBar.setMaximumProgress(int(max_progress))
 
         # Get what reports the user wants
@@ -264,10 +276,13 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         html_programs = None
         html_ips = None
         html_regex = None
+        html_wsu = None
+        html_files = None
         xls_ws_reported = None
         xls_ws_logged_ips = None
         xls_ws_regex = None
         xls_ws_wsu = None
+        xls_ws_files = None
         dfxml = None
 
         # Init reports
@@ -277,11 +292,13 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             html_file_name_ips = os.path.join(baseReportDir, self.getRelativeFilePathIPsHTML())
             html_file_name_regex = os.path.join(baseReportDir, self.getRelativeFilePathRegExHTML())
             html_file_name_wsu = os.path.join(baseReportDir, self.getRelativeFilePathWSUHTML())
+            html_file_name_files = os.path.join(baseReportDir, self.getRelativeFilePathFilesHTML())
             # Get template path
             template_name_programs = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_programs.html")
             template_name_ips = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_ips.html")
             template_name_regex = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_regex.html")
             template_name_wsu = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_wsu.html")
+            template_name_files = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_files.html")
             
             # Open template HTML
             # The template has a table and a basic interface to show results
@@ -301,6 +318,10 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 txt = inf.read()
                 html_wsu = bs4.BeautifulSoup(txt)
 
+            with open(template_name_files) as inf:
+                txt = inf.read()
+                html_files = bs4.BeautifulSoup(txt)
+
         if generateXLS:
             # Get xls_file_name
             xls_file_name = os.path.join(baseReportDir, self.getRelativeFilePathXLS())
@@ -311,6 +332,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             xls_ws_logged_ips = report_xls_wb.add_worksheet(WS_NAME_LOGGED_IPS)
             xls_ws_regex = report_xls_wb.add_worksheet(WS_NAME_CUSTOM_REGEX)
             xls_ws_wsu = report_xls_wb.add_worksheet(WS_NAME_WSU)
+            xls_ws_files = report_xls_wb.add_worksheet(WS_NAME_FILES)
 
         if generateDFXML:
             dfxml_path = os.path.join(baseReportDir, self.getRelativeFilePathDFXML())
@@ -318,11 +340,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # Create counter to operate Excel
         # Start row at 1 because of headers
         xls_row_count = 1
-
-
-        # Second additional step here
-        progressBar.increment()
-        progressBar.updateStatusLabel("Going through Reported program artifacts now, takes some time...")
 
         # Get Attribute types
         att_ip_counter = skCase.getAttributeType("TSK_LFA_IP_COUNTER")
@@ -335,6 +352,58 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         att_reported_app_path = skCase.getAttributeType("TSK_LFA_APP_PATH")
         att_content_matched = skCase.getAttributeType("TSK_LFA_CUSTOM_MATCH")
 
+        #################################################
+        #            _  _   ______  _  _                # 
+        #     /\    | || | |  ____|(_)| |               # 
+        #    /  \   | || | | |__    _ | |  ___  ___     # 
+        #   / /\ \  | || | |  __|  | || | / _ \/ __|    # 
+        #  / ____ \ | || | | |     | || ||  __/\__ \    # 
+        # /_/    \_\|_||_| |_|     |_||_| \___||___/    #
+        #################################################
+        
+        progressBar.updateStatusLabel("Going through all files...")
+
+        art_count = 0
+
+        for i in xrange(len(list_art_list_files)):
+            if list_art_list_files[i]:
+                for artifact in list_art_list_files[i]:
+                    art_count += 1
+
+                    row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_files, xls_ws_files)
+                    
+                    # Add file type to Excel...
+                    file_type = list_file_types[i]
+                    if generateXLS:
+                        xls_ws_files.write(xls_row_count,XLS_FILES_HEADER_COUNT-1, file_type)
+                        xls_row_count += 1
+                    
+                    if generateHTML:
+                        file_type_cell = html_files.new_tag("td")
+                        file_type_cell.string = file_type
+                        # Append row to table
+                        row.append(file_type_cell)
+
+                        # Select tag with ID filestable - 0 because report_html.select returns an array
+                        table = html_files.select("#filestable")[0]
+                        table.append(row)
+
+                    if generateDFXML:
+                        self.write_artifact_to_dfxml_report(skCase, progressBar, artifact, dfxml)
+
+        if generateXLS:
+            # Start table at cell 0,0 and finish at row counter-1 (because it was incremented) and 5 (amount of headers - 1)
+            xls_ws_files.add_table(0,0,xls_row_count-1,XLS_FILES_HEADER_COUNT-1, 
+                                            {'columns':[
+                                                {'header': 'Log size'},
+                                                {'header': 'Create date'},
+                                                {'header': 'Last modified'},
+                                                {'header': 'Last access'},
+                                                {'header': 'File path'},
+                                                {'header': 'File type'}
+                                            ]})
+
+
         #########################################################
         #  _____                            _             _     #
         # |  __ \                          | |           | |    #
@@ -346,7 +415,11 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         #              |_|                                      #
         #########################################################
 
+        progressBar.updateStatusLabel("Going through Reported program artifacts now, takes some time...")
+
+        # Reset counters
         art_count = 0
+        xls_row_count = 1
 
         if art_list_reported_progs:
             # Statistics variables
@@ -359,7 +432,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 # Function returns an HTML row in case we're doing a HTML report
                 # So that we can add more info to that row reference if required
                 # Not required for Excel because it can be done with coordinates
-                row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_programs, xls_ws_reported, dfxml)
+                row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_programs, xls_ws_reported)
                 
                 # Get reported app name
                 reported_app_path = artifact.getAttribute(att_reported_app_path).getValueString()
@@ -462,7 +535,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             for art_logged_ip in art_list_logged_ips:
                 art_count += 1
-                row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, art_logged_ip, xls_row_count, html_ips, xls_ws_logged_ips, dfxml)
+                row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, art_logged_ip, xls_row_count, html_ips, xls_ws_logged_ips)
                 
                 if generateXLS:
                     xls_row_count += 1
@@ -568,7 +641,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 # Function returns an HTML row in case we're doing a HTML report
                 # So that we can add more info to that row reference if required
                 # Not required for Excel because it can be done with coordinates
-                row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_regex, xls_ws_regex, dfxml)
+                row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_regex, xls_ws_regex)
                 
                 if generateXLS:
                     xls_row_count += 1
@@ -624,7 +697,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                     # Function returns an HTML row in case we're doing a HTML report
                     # So that we can add more info to that row reference if required
                     # Not required for Excel because it can be done with coordinates
-                    row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_wsu, xls_ws_wsu, dfxml)
+                    row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_wsu, xls_ws_wsu)
                     
                     if generateXLS:
                         xls_row_count += 1
@@ -683,6 +756,12 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             with open(html_file_name_regex, "w") as outf:
                 outf.write(str(html_regex))
+
+            with open(html_file_name_wsu, "w") as outf:
+                outf.write(str(html_wsu))
+
+            with open(html_file_name_files, "w") as outf:
+                outf.write(str(html_files))
 
             self.log(Level.INFO, "Saving HTML Report to: "+html_file_name)
             # Add the report to the Case, so it is shown in the tree
