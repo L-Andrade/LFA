@@ -10,11 +10,11 @@ CONST_DEFAULT = ["AppName",
                  "FriendlyEventName", "EventTime", "AppPath"]
 EPOCH_AS_FILETIME = 116444736000000000  # January 1, 1970 as MS file time
 HUNDREDS_OF_NANOSECONDS = 10000000
+DEFAULT_VALUE = 'N/A'
 
-
-def is_file_wer(pathToFile):
+def is_file_wer(path_to_file):
     try:
-        f = codecs.open(os.path.join(pathToFile),
+        f = codecs.open(os.path.join(path_to_file),
                         'r', encoding='utf-16le')
         line_one = f.readline()
         line_two = f.readline()
@@ -27,48 +27,53 @@ def is_file_wer(pathToFile):
         
 
 
-def extract_default_keys(pathToFile):
-    lines = _read_file_lines(pathToFile)
-
-    myDict = {}
-    try:
-        for line in lines:
-            sLines = line.split("=")
-            myDict[sLines[0]] = str(sLines[1]).encode("utf-8")
-    except:
-        return{'Error': 'unable to parse file'}
-
+def extract_default_keys(path_to_file):
     res = {}
 
     try:
-        for key in CONST_DEFAULT:
-            if(key == "EventTime"):
-                res[key] = datetime.utcfromtimestamp(
-                    (long(myDict[key]) - EPOCH_AS_FILETIME) / HUNDREDS_OF_NANOSECONDS)
-            else:
-                res[key] = ''.join(myDict[key])
+        lines = _read_file_lines(path_to_file)
     except:
-        return{'Error': 'key does not exist in file'}
+        raise
 
-    res['WindowsVersion'] = extract_windows_key(pathToFile)
-    return res
-
-def extract_windows_key(pathToFile):
-    return extract_specific_array_key(pathToFile, "OsInfo", "osver")
-
-def extract_specific_key(pathToFile, key):
-    lines = _read_file_lines(pathToFile)
+    dict_wer_keys = {}
     try:
         for line in lines:
-            sLines = line.split("=")
-            if sLines[0] == key:
-                return sLines[1]
-        return {'Error': 'key does not exist in file'}
-    except:
-        return {'Error': 'unable to parse file'}
+            split_line = line.split("=")
+            dict_wer_keys[split_line[0]] = str(split_line[1]).encode("utf-8")
 
-def extract_specific_array_key(pathToFile, array, key):
-    lines = _read_file_lines(pathToFile)
+        res['WindowsVersion'] = extract_windows_key(path_to_file)
+    except:
+        raise
+
+
+    for key in CONST_DEFAULT:
+        try:
+            if(key == "EventTime"):
+                res[key] = datetime.utcfromtimestamp(
+                    (long(dict_wer_keys[key]) - EPOCH_AS_FILETIME) / HUNDREDS_OF_NANOSECONDS)
+            else:
+                res[key] = ''.join(dict_wer_keys[key])
+        except:
+            res[key] = DEFAULT_VALUE
+
+    return res
+
+def extract_windows_key(path_to_file):
+    return extract_specific_array_key(path_to_file, "OsInfo", "osver")
+
+def extract_specific_key(path_to_file, key):
+    lines = _read_file_lines(path_to_file)
+    try:
+        for line in lines:
+            split_line = line.split("=")
+            if split_line[0] == key:
+                return split_line[1]
+        return DEFAULT_VALUE
+    except:
+        raise
+
+def extract_specific_array_key(path_to_file, array, key):
+    lines = _read_file_lines(path_to_file)
     try:
         for i in xrange(0,len(lines)):
             splited_line = lines[i].split("=")
@@ -76,34 +81,34 @@ def extract_specific_array_key(pathToFile, array, key):
                 if splited_line[1] == key:
                     value_splited_line = lines[i+1].split("=")
                     return value_splited_line[1]
-        return {'Error': 'key does not exist in file'}
+        return DEFAULT_VALUE
+        #raise KeyError('Could not find key "'+key+'"" in the array "'+array+'"')
     except:
-        return {'Error': 'unable to parse file'}
+        raise
 
 
-def find_dmp_files(pathToFile):
-    lines = _read_file_lines(pathToFile)
+def find_dmp_files(path_to_file):
+    lines = _read_file_lines(path_to_file)
     res = []
     try:
         for line in lines:
-            sLines = line.split("=")
-            if sLines[1].endswith(".dmp") and "\\" not in sLines[1] and sLines[1] not in res:
-                res.append(sLines[1])
-        return res
+            split_line = line.split("=")
+            if split_line[1].endswith(".dmp") and "\\" not in split_line[1] and split_line[1] not in res:
+                res.append(split_line[1])
     except:
-        return {'Error': 'unable to parse file'}
+        return DEFAULT_VALUE
+    return res
 
 
-def _read_file_lines(pathToFile):
+def _read_file_lines(path_to_file):
+    clean_lines = []
     try:
-        f = codecs.open(pathToFile, 'r', encoding='utf-16le')
+        f = codecs.open(path_to_file, 'r', encoding='utf-16le')
         lines = f.readlines()
-        clean_lines = []
         for line in lines:
-            clean_line = line.replace('\n', '').replace(
-                '\t', '').replace('\r', '')
+            clean_line = line.replace('\n', '').replace('\t', '').replace('\r', '')
             clean_lines.append(clean_line)
         f.close()
-        return clean_lines
     except IOError:
-        return {'Error': 'unable to open file'}
+        raise
+    return clean_lines
