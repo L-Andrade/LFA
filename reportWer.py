@@ -329,86 +329,85 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         art_count = 0
 
-        # Statistics variables
-        event_dictionary = {}
-        programs_detected = 0
+        if art_list_reported_progs:
+            # Statistics variables
+            event_dictionary = {}
+            programs_detected = 0
 
-        # Create a table row for each attribute
-        for artifact in art_list_reported_progs:
-            art_count += 1
-            # Function returns an HTML row in case we're doing a HTML report
-            # So that we can add more info to that row reference if required
-            # Not required for Excel because it can be done with coordinates
-            row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_programs, xls_ws_reported, dfxml)
-            
-            # Get reported app name
-            reported_app_path = artifact.getAttribute(att_reported_app_path).getValueString()
-            # Take drive off path (ex: C:\)
-            reported_app_path = reported_app_path[3:]
-            # Invert slashes and take of space-like characters
-            reported_app_path = reported_app_path.replace('\\', '/').encode('utf-8').split('/')[-1]
+            # Create a table row for each attribute
+            for artifact in art_list_reported_progs:
+                art_count += 1
+                # Function returns an HTML row in case we're doing a HTML report
+                # So that we can add more info to that row reference if required
+                # Not required for Excel because it can be done with coordinates
+                row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_programs, xls_ws_reported, dfxml)
+                
+                # Get reported app name
+                reported_app_path = artifact.getAttribute(att_reported_app_path).getValueString()
+                # Take drive off path (ex: C:\)
+                reported_app_path = reported_app_path[3:]
+                # Invert slashes and take of space-like characters
+                reported_app_path = reported_app_path.replace('\\', '/').encode('utf-8').split('/')[-1]
 
-            # Search for the AppPath, found in the .wer, in the datasource
-            data_source = artifact.getDataSource()
-            # files_found = file_manager.findFiles(data_source, reported_app_path)
-            # Delete next line and uncomment line before, testing only!! todo
-            files_found = None
+                # Search for the AppPath, found in the .wer, in the datasource
+                data_source = artifact.getDataSource()
+                files_found = file_manager.findFiles(data_source, reported_app_path)
 
-            # Check if the reported program was found
-            if files_found:
-                is_detected_string = "Yes"
-                programs_detected += 1
-            else:
-                is_detected_string = "No"
+                # Check if the reported program was found
+                if files_found:
+                    is_detected_string = "Yes"
+                    programs_detected += 1
+                else:
+                    is_detected_string = "No"
 
-            # Write to report
-            if generateXLS:
-                xls_ws_reported.write(xls_row_count,XLS_REPORTED_HEADER_COUNT-1, is_detected_string)
-                xls_row_count += 1
-            
+                # Write to report
+                if generateXLS:
+                    xls_ws_reported.write(xls_row_count,XLS_REPORTED_HEADER_COUNT-1, is_detected_string)
+                    xls_row_count += 1
+                
+                if generateHTML:
+                    is_detected_cell = html_programs.new_tag("td")
+                    is_detected_cell.string = is_detected_string
+                    # Append row to table
+                    row.append(is_detected_cell)
+
+                    # Select tag with ID reportedinstalls - 0 because report_html.select returns an array
+                    table = html_programs.select("#reportedinstalls")[0]
+                    table.append(row)
+
+                # For statistics
+                # Count event types
+                event_name = artifact.getAttribute(att_event_name).getValueString()
+                # If Event is already in dictionary, add 1
+                if event_dictionary.get(event_name):
+                    event_dictionary[event_name] += 1
+                # If it's not, add it to dictionary and start with 1
+                else:
+                    event_dictionary[event_name] = 1
+
+            # Add number of artifacts to table info panel
+            # Need to turn one of the ints into float so the division works
+            percentage = round((float(art_count)/files_wer_count)*100,2) if files_wer_count != 0 else 0
+            reported_info_str = str(art_count) + " artifacts out of " + str(files_wer_count) + " files ("+ str(percentage) + "%)"
+
             if generateHTML:
-                is_detected_cell = html_programs.new_tag("td")
-                is_detected_cell.string = is_detected_string
-                # Append row to table
-                row.append(is_detected_cell)
+                # Select tag '<p>' with ID tableinfo - 0 because report_html.select returns an array
+                info = html_programs.select("p#tableinfo")[0]
+                info.string = reported_info_str
 
-                # Select tag with ID reportedinstalls - 0 because report_html.select returns an array
-                table = html_programs.select("#reportedinstalls")[0]
-                table.append(row)
-
-            # For statistics
-            # Count event types
-            event_name = artifact.getAttribute(att_event_name).getValueString()
-            # If Event is already in dictionary, add 1
-            if event_dictionary.get(event_name):
-                event_dictionary[event_name] += 1
-            # If it's not, add it to dictionary and start with 1
-            else:
-                event_dictionary[event_name] = 1
-
-        # Add number of artifacts to table info panel
-        # Need to turn one of the ints into float so the division works
-        percentage = round((float(art_count)/files_wer_count)*100,2) if files_wer_count != 0 else 0
-        reported_info_str = str(art_count) + " artifacts out of " + str(files_wer_count) + " files ("+ str(percentage) + "%)"
-
-        if generateHTML:
-            # Select tag '<p>' with ID tableinfo - 0 because report_html.select returns an array
-            info = html_programs.select("p#tableinfo")[0]
-            info.string = reported_info_str
-
-        if generateXLS:
-            # Start table at cell 0,0 and finish at row counter-1 (because it was incremented) and 5 (amount of headers - 1)
-            xls_ws_reported.add_table(0,0,xls_row_count-1,XLS_REPORTED_HEADER_COUNT-1, 
-                                            {'columns':[
-                                                {'header': 'Program name'},
-                                                {'header': 'Event'},
-                                                {'header': 'Time of report'},
-                                                {'header': 'Path to program'},
-                                                {'header': 'Windows version'},
-                                                {'header': 'Dump files'},
-                                                {'header': 'Is detected'}
-                                            ]})
-            xls_ws_reported.write(xls_row_count+1, 0, reported_info_str)
+            if generateXLS:
+                # Start table at cell 0,0 and finish at row counter-1 (because it was incremented) and 5 (amount of headers - 1)
+                xls_ws_reported.add_table(0,0,xls_row_count-1,XLS_REPORTED_HEADER_COUNT-1, 
+                                                {'columns':[
+                                                    {'header': 'Program name'},
+                                                    {'header': 'Event'},
+                                                    {'header': 'Time of report'},
+                                                    {'header': 'Path to program'},
+                                                    {'header': 'Windows version'},
+                                                    {'header': 'Dump files'},
+                                                    {'header': 'Is detected'}
+                                                ]})
+                xls_ws_reported.write(xls_row_count+1, 0, reported_info_str)
 
         #############################################################
         #  _                                     _   _____  _____   #
@@ -426,102 +425,102 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # Reset counters
         art_count = 0
         xls_row_count = 1
+        if art_list_logged_ips:
+            # Statistics variables
+            ip_dictionary = {}
 
-        # Statistics variables
-        ip_dictionary = {}
+            # Order specified below in ip_type_arr_str
+            array_ip_dicts_by_type = [{},{},{},{}, {}]
+            ip_type_arr_str = ['Public', 'Private','Reserved', 'Loopback', 'Link-local']
 
-        # Order specified below in ip_type_arr_str
-        array_ip_dicts_by_type = [{},{},{},{}, {}]
-        ip_type_arr_str = ['Public', 'Private','Reserved', 'Loopback', 'Link-local']
-
-        # Order specified below in ip_version_arr_str
-        array_ip_dicts_by_version = [{}, {}]
-        ip_version_arr_str = ['IPv4', 'IPv6']
-        
-        ip_file_dictionary = {}
-        ipv4_occurrences = 0
-        ipv6_occurrences = 0
-
-        for art_logged_ip in art_list_logged_ips:
-            art_count += 1
-            row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, art_logged_ip, xls_row_count, html_ips, xls_ws_logged_ips, dfxml)
+            # Order specified below in ip_version_arr_str
+            array_ip_dicts_by_version = [{}, {}]
+            ip_version_arr_str = ['IPv4', 'IPv6']
             
-            if generateXLS:
-                xls_row_count += 1
+            ip_file_dictionary = {}
+            ipv4_occurrences = 0
+            ipv6_occurrences = 0
+
+            for art_logged_ip in art_list_logged_ips:
+                art_count += 1
+                row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, art_logged_ip, xls_row_count, html_ips, xls_ws_logged_ips, dfxml)
+                
+                if generateXLS:
+                    xls_row_count += 1
+                if generateHTML:
+                    table = html_ips.select("#loggedipstable")[0]
+                    table.append(row)
+
+                # For statistics
+                # IPs are separated by file
+                # With this, we basically join the occurrences counter
+                ip_address = art_logged_ip.getAttribute(att_ip_address).getValueString()
+                ip_counter = int(art_logged_ip.getAttribute(att_ip_counter).getValueString())
+                ip_log_file = art_logged_ip.getAttribute(att_ip_log_path).getValueString()
+                ip_type = art_logged_ip.getAttribute(att_ip_type).getValueString()
+                ip_version = art_logged_ip.getAttribute(att_ip_version).getValueString()
+
+                # If IP is already in dictionary, add the counter
+                if ip_dictionary.get(ip_address):
+                    # Increment it in main dictionary
+                    ip_dictionary[ip_address] += ip_counter
+
+                    # Increment it in it's type dictionary
+                    array_ip_dicts_by_type[ip_type_arr_str.index(ip_type)][ip_address] += ip_counter
+                   
+
+                    # Add it to it's version dictionary
+                    if ip_version == ip_version_arr_str[0]:
+                        ipv4_occurrences += ip_counter
+                        array_ip_dicts_by_version[0][ip_address] += ip_counter
+                    elif ip_version == ip_version_arr_str[1]:
+                        ipv6_occurrences += ip_counter
+                        array_ip_dicts_by_version[1][ip_address] += ip_counter
+                # If it's not, add it to dictionary and start with counter
+                else:
+                    # Add it to main dictionary
+                    ip_dictionary[ip_address] = ip_counter
+
+                    # Add it to it's type dictionary
+                    array_ip_dicts_by_type[ip_type_arr_str.index(ip_type)][ip_address] = ip_counter
+                   
+                    # Add it to it's version dictionary
+                    if ip_version == ip_version_arr_str[0]:
+                        ipv4_occurrences += ip_counter
+                        array_ip_dicts_by_version[0][ip_address] = ip_counter
+                    elif ip_version == ip_version_arr_str[1]:
+                        ipv6_occurrences += ip_counter
+                        array_ip_dicts_by_version[1][ip_address] = ip_counter
+
+                # Every time the IP is mentioned (once for every artifact)
+                # Increment a counter by 1
+                if ip_file_dictionary.get(ip_address):
+                    ip_file_dictionary[ip_address] += 1
+                else:
+                    ip_file_dictionary[ip_address] = 1
+
+            # Add final info to IP reports
+            ips_info_str = str(len(art_list_logged_ips)) + " artifacts out of " + str(files_log_count) + " .log files and " + str(len(ip_dictionary)) + " unique IPs."
+
             if generateHTML:
-                table = html_ips.select("#loggedipstable")[0]
-                table.append(row)
+                # Select tag '<p>' with ID tableipsinfo - 0 because report_html.select returns an array
+                info = html_ips.select("p#tableipsinfo")[0]
+                info.string = reported_info_str
 
-            # For statistics
-            # IPs are separated by file
-            # With this, we basically join the occurrences counter
-            ip_address = art_logged_ip.getAttribute(att_ip_address).getValueString()
-            ip_counter = int(art_logged_ip.getAttribute(att_ip_counter).getValueString())
-            ip_log_file = art_logged_ip.getAttribute(att_ip_log_path).getValueString()
-            ip_type = art_logged_ip.getAttribute(att_ip_type).getValueString()
-            ip_version = art_logged_ip.getAttribute(att_ip_version).getValueString()
+            if generateXLS:
+                # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
+                xls_ws_logged_ips.add_table(0,0,xls_row_count-1,XLS_IPS_HEADER_COUNT-1, 
+                                                {'columns':[
+                                                    {'header': 'Type'},
+                                                    {'header': 'Domain'},
+                                                    {'header': 'Version'},
+                                                    {'header': 'IP Address'},
+                                                    {'header': 'Protocol'},
+                                                    {'header': 'Occurrences'},
+                                                    {'header': 'Log path'}
+                                                ]})
 
-            # If IP is already in dictionary, add the counter
-            if ip_dictionary.get(ip_address):
-                # Increment it in main dictionary
-                ip_dictionary[ip_address] += ip_counter
-
-                # Increment it in it's type dictionary
-                array_ip_dicts_by_type[ip_type_arr_str.index(ip_type)][ip_address] += ip_counter
-               
-
-                # Add it to it's version dictionary
-                if ip_version == ip_version_arr_str[0]:
-                    ipv4_occurrences += ip_counter
-                    array_ip_dicts_by_version[0][ip_address] += ip_counter
-                elif ip_version == ip_version_arr_str[1]:
-                    ipv6_occurrences += ip_counter
-                    array_ip_dicts_by_version[1][ip_address] += ip_counter
-            # If it's not, add it to dictionary and start with counter
-            else:
-                # Add it to main dictionary
-                ip_dictionary[ip_address] = ip_counter
-
-                # Add it to it's type dictionary
-                array_ip_dicts_by_type[ip_type_arr_str.index(ip_type)][ip_address] = ip_counter
-               
-                # Add it to it's version dictionary
-                if ip_version == ip_version_arr_str[0]:
-                    ipv4_occurrences += ip_counter
-                    array_ip_dicts_by_version[0][ip_address] = ip_counter
-                elif ip_version == ip_version_arr_str[1]:
-                    ipv6_occurrences += ip_counter
-                    array_ip_dicts_by_version[1][ip_address] = ip_counter
-
-            # Every time the IP is mentioned (once for every artifact)
-            # Increment a counter by 1
-            if ip_file_dictionary.get(ip_address):
-                ip_file_dictionary[ip_address] += 1
-            else:
-                ip_file_dictionary[ip_address] = 1
-
-        # Add final info to IP reports
-        ips_info_str = str(len(art_list_logged_ips)) + " artifacts out of " + str(files_log_count) + " .log files and " + str(len(ip_dictionary)) + " unique IPs."
-
-        if generateHTML:
-            # Select tag '<p>' with ID tableipsinfo - 0 because report_html.select returns an array
-            info = html_ips.select("p#tableipsinfo")[0]
-            info.string = reported_info_str
-
-        if generateXLS:
-            # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
-            xls_ws_logged_ips.add_table(0,0,xls_row_count-1,XLS_IPS_HEADER_COUNT-1, 
-                                            {'columns':[
-                                                {'header': 'Type'},
-                                                {'header': 'Domain'},
-                                                {'header': 'Version'},
-                                                {'header': 'IP Address'},
-                                                {'header': 'Protocol'},
-                                                {'header': 'Occurrences'},
-                                                {'header': 'Log path'}
-                                            ]})
-
-            xls_ws_logged_ips.write(xls_row_count+1, 0, ips_info_str)
+                xls_ws_logged_ips.write(xls_row_count+1, 0, ips_info_str)
         
         #############################################
         #  _____               ______               #
@@ -540,82 +539,83 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         art_count = 0
         xls_row_count = 1
 
-        # Create a table row for each attribute
-        for artifact in art_list_custom_regex:
-            art_count += 1
-            # Function returns an HTML row in case we're doing a HTML report
-            # So that we can add more info to that row reference if required
-            # Not required for Excel because it can be done with coordinates
-            row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_regex, xls_ws_regex, dfxml)
-            
-            if generateXLS:
-                xls_row_count += 1
-
-            if generateHTML:
-                # Select tag with ID regextable - 0 because report_html.select returns an array
-                table = html_regex.select("#regextable")[0]
-                table.append(row)
-
-        # Add headers to XLS
-        if generateXLS:
-            # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
-            xls_ws_regex.add_table(0,0,xls_row_count-1,XLS_REGEX_HEADER_COUNT-1, 
-                                            {'columns':[
-                                                {'header': 'Pattern'},
-                                                {'header': 'Occurrences'},
-                                                {'header': 'Log path'}
-                                            ]})
-
-        #############################################################
-        # __          __ _____  _                _                  #   
-        # \ \        / // ____|| |              | |                 #
-        #  \ \  /\  / /| (___  | |_  __ _  _ __ | |_  _   _  _ __   #
-        #   \ \/  \/ /  \___ \ | __|/ _` || '__|| __|| | | || '_ \  #
-        #    \  /\  /   ____) || |_| (_| || |   | |_ | |_| || |_) | #
-        #     \/  \/   |_____/  \__|\__,_||_|    \__| \__,_|| .__/  #
-        #                                                   | |     #
-        #                                                   |_|     #
-        #############################################################
-        
-        if art_list_wsu:
-            progressBar.updateStatusLabel("Going through Windows Startup artifacts now...")
-                                  
-            # Reset counters
-            art_count = 0
-            xls_row_count = 1
-
+        if art_list_custom_regex:
             # Create a table row for each attribute
-            for artifact in art_list_wsu:
+            for artifact in art_list_custom_regex:
                 art_count += 1
                 # Function returns an HTML row in case we're doing a HTML report
                 # So that we can add more info to that row reference if required
                 # Not required for Excel because it can be done with coordinates
-                row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_wsu, xls_ws_wsu, dfxml)
+                row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_regex, xls_ws_regex, dfxml)
                 
                 if generateXLS:
                     xls_row_count += 1
 
                 if generateHTML:
                     # Select tag with ID regextable - 0 because report_html.select returns an array
-                    table = html_wsu.select("#wsutable")[0]
+                    table = html_regex.select("#regextable")[0]
                     table.append(row)
 
             # Add headers to XLS
             if generateXLS:
                 # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
-                xls_ws_wsu.add_table(0,0,xls_row_count-1,XLS_WSU_HEADER_COUNT-1, 
+                xls_ws_regex.add_table(0,0,xls_row_count-1,XLS_REGEX_HEADER_COUNT-1, 
                                                 {'columns':[
-                                                    {'header': 'Name'},
-                                                    {'header': 'PID'},
-                                                    {'header': 'Started in trace sec'},
-                                                    {'header': 'Start time'},
-                                                    {'header': 'Command line'},
-                                                    {'header': 'Disk usage'},
-                                                    {'header': 'CPU usage'},
-                                                    {'header': 'Parent PID'},
-                                                    {'header': 'Parent start time'},
-                                                    {'header': 'Parent name'}
+                                                    {'header': 'Pattern'},
+                                                    {'header': 'Occurrences'},
+                                                    {'header': 'Log path'}
                                                 ]})
+
+            #############################################################
+            # __          __ _____  _                _                  #   
+            # \ \        / // ____|| |              | |                 #
+            #  \ \  /\  / /| (___  | |_  __ _  _ __ | |_  _   _  _ __   #
+            #   \ \/  \/ /  \___ \ | __|/ _` || '__|| __|| | | || '_ \  #
+            #    \  /\  /   ____) || |_| (_| || |   | |_ | |_| || |_) | #
+            #     \/  \/   |_____/  \__|\__,_||_|    \__| \__,_|| .__/  #
+            #                                                   | |     #
+            #                                                   |_|     #
+            #############################################################
+            
+            if art_list_wsu:
+                progressBar.updateStatusLabel("Going through Windows Startup artifacts now...")
+                                      
+                # Reset counters
+                art_count = 0
+                xls_row_count = 1
+
+                # Create a table row for each attribute
+                for artifact in art_list_wsu:
+                    art_count += 1
+                    # Function returns an HTML row in case we're doing a HTML report
+                    # So that we can add more info to that row reference if required
+                    # Not required for Excel because it can be done with coordinates
+                    row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, generateDFXML, artifact, xls_row_count, html_wsu, xls_ws_wsu, dfxml)
+                    
+                    if generateXLS:
+                        xls_row_count += 1
+
+                    if generateHTML:
+                        # Select tag with ID regextable - 0 because report_html.select returns an array
+                        table = html_wsu.select("#wsutable")[0]
+                        table.append(row)
+
+                # Add headers to XLS
+                if generateXLS:
+                    # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
+                    xls_ws_wsu.add_table(0,0,xls_row_count-1,XLS_WSU_HEADER_COUNT-1, 
+                                                    {'columns':[
+                                                        {'header': 'Name'},
+                                                        {'header': 'PID'},
+                                                        {'header': 'Started in trace sec'},
+                                                        {'header': 'Start time'},
+                                                        {'header': 'Command line'},
+                                                        {'header': 'Disk usage'},
+                                                        {'header': 'CPU usage'},
+                                                        {'header': 'Parent PID'},
+                                                        {'header': 'Parent start time'},
+                                                        {'header': 'Parent name'}
+                                                    ]})
 
         #########################################################################
         #   _____                                _____  _          _            #
