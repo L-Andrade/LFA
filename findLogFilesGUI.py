@@ -180,6 +180,14 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         # Get Sleuthkit case
         skCase = Case.getCurrentCase().getSleuthkitCase()
 
+        # Get UI settings now and avoid always calling getters
+        self.checkWSU = self.local_settings.getCheckWSU()
+        self.checkETL = self.local_settings.getCheckETL()
+        self.checkWER = self.local_settings.getCheckWER()
+        self.checkDmp = self.local_settings.getCheckDmp()
+        self.checkEVTx = self.local_settings.getCheckEVTx()
+        self.checkLog = self.local_settings.getCheckLog()
+
         # Create new artifact types
         self.art_log_file = self.create_artifact(
             "Create new Artifact Log File", "TSK_LFA_LOG_FILES", "Ad hoc log files", skCase)
@@ -436,7 +444,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
         self.temp_dir = Case.getCurrentCase().getTempDirectory()
         self.wsu_patt = re.compile(r'.*s-1-5-21-\d+-\d+\-\d+\-\d+_startupinfo\d\.xml')
-        if self.local_settings.getCheckWER():
+        if self.checkWER:
             # Create wer directory in temp directory, if it exists then continue on processing
             self.log(Level.INFO, "Create .wer directory " + self.temp_dir)
             try:
@@ -445,7 +453,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 self.log(
                     Level.INFO, "Wers directory already exists " + self.temp_dir)
 
-        if self.local_settings.getCheckLog():
+        if self.checkLog:
             self.log(Level.INFO, "Create .log directory " + self.temp_dir)
             try:
                 os.mkdir(self.temp_dir + LOG_FOLDER_PATH)
@@ -453,7 +461,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 self.log(
                     Level.INFO, "Logs directory already exists " + self.temp_dir)
 
-        if True:  # self.local_settings.getCheckWSU(): ###TODO: ADD THE CHECKING PART ONCE CHECKBOXES ARE ACTIVE
+        if self.checkWSU:
             self.log(
                 Level.INFO, "Create windows startup files directory " + self.temp_dir)
             try:
@@ -462,7 +470,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             except:
                 self.log(
                     Level.INFO, "Logs directory already exists " + self.temp_dir)
-
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException("Oh No!")
 
@@ -478,41 +485,44 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         # Use blackboard class to index blackboard artifacts for keyword search
         blackboard = Case.getCurrentCase().getServices().getBlackboard()
         file_name = file.getName().lower()
-        # Is file of certain extension AND its checkbox is checked?
-        if ((file_name.endswith(".etl") and self.local_settings.getCheckETL()) or
-            ((file_name.endswith(".wer")) and self.local_settings.getCheckWER()) or
-            (file_name.endswith(".dmp") and self.local_settings.getCheckDmp()) or
-            (file_name.endswith(".evtx") and self.local_settings.getCheckEVTx()) or
-            (file_name.endswith(".log") and self.local_settings.getCheckLog()) or
-                (self.wsu_patt.match(file_name) is not None)):  # TODO:CHECKBOX THING AGAIN
+
+        # Is file of certain extension AND is its checkbox checked?
+        if ((file_name.endswith(".etl") and self.checkETL) or
+            ((file_name.endswith(".wer")) and self.checkWER) or
+            (file_name.endswith(".dmp") and self.checkDmp) or
+            (file_name.endswith(".evtx") and self.checkEVTx) or
+            (file_name.endswith(".log") and self.checkLog) or
+            (self.wsu_patt.match(file_name) is not None and self.checkWSU)):
 
             # Get all file artifacts
             skCase = Case.getCurrentCase().getSleuthkitCase()
-            # get one list at a time and append them
-            werList = skCase.getBlackboardArtifacts(self.art_wer_file.getTypeID(
+
+            # Get one list at a time and append them
+            wer_list = skCase.getBlackboardArtifacts(self.art_wer_file.getTypeID(
             )) if skCase.getBlackboardArtifacts(self.art_wer_file.getTypeID()) is not None else []
 
-            dmpList = skCase.getBlackboardArtifacts(self.art_dmp_file.getTypeID(
+            dmp_list = skCase.getBlackboardArtifacts(self.art_dmp_file.getTypeID(
             )) if skCase.getBlackboardArtifacts(self.art_dmp_file.getTypeID()) is not None else []
 
-            evtList = skCase.getBlackboardArtifacts(self.art_evt_file.getTypeID(
+            evt_list = skCase.getBlackboardArtifacts(self.art_evt_file.getTypeID(
             )) if skCase.getBlackboardArtifacts(self.art_evt_file.getTypeID()) is not None else []
 
-            logList = skCase.getBlackboardArtifacts(self.art_log_file.getTypeID(
+            log_list = skCase.getBlackboardArtifacts(self.art_log_file.getTypeID(
             )) if skCase.getBlackboardArtifacts(self.art_log_file.getTypeID()) is not None else []
 
-            etlList = skCase.getBlackboardArtifacts(self.art_etl_file.getTypeID(
+            etl_list = skCase.getBlackboardArtifacts(self.art_etl_file.getTypeID(
             )) if skCase.getBlackboardArtifacts(self.art_etl_file.getTypeID()) is not None else []
 
-            wsuList = skCase.getBlackboardArtifacts(self.art_windows_startup_file.getTypeID(
+            wsu_list = skCase.getBlackboardArtifacts(self.art_windows_startup_file.getTypeID(
             )) if skCase.getBlackboardArtifacts(self.art_windows_startup_file.getTypeID()) is not None else []
 
-            werList.extend(dmpList)
-            werList.extend(evtList)
-            werList.extend(logList)
-            werList.extend(etlList)
-            werList.extend(wsuList)
-            artifact_list = werList
+            # Form one big list with all artifacts
+            wer_list.extend(dmp_list)
+            wer_list.extend(evt_list)
+            wer_list.extend(log_list)
+            wer_list.extend(etl_list)
+            wer_list.extend(wsu_list)
+            artifact_list = wer_list
 
             file_path = file.getDataSource().getName() + file.getParentPath() + file.getName()
             for artifact in artifact_list:
@@ -536,17 +546,17 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             # ######################################################
 
             # workaround to sort in which artifact to be insterted
-            if(file_name.endswith(".wer")):
+            if file_name.endswith(".wer"):
                 generic_art = self.art_wer_file
-            elif(file_name.endswith(".log")):
+            elif file_name.endswith(".log"):
                 generic_art = self.art_log_file
-            elif(file_name.endswith(".dmp")):
+            elif file_name.endswith(".dmp"):
                 generic_art = self.art_dmp_file
-            elif(file_name.endswith(".etl")):
+            elif file_name.endswith(".etl"):
                 generic_art = self.art_etl_file
-            elif(file_name.endswith(".evtx")):
+            elif file_name.endswith(".evtx"):
                 generic_art = self.art_evt_file
-            elif(self.wsu_patt.match(file_name)):
+            elif self.wsu_patt.match(file_name):
                 generic_art = self.art_windows_startup_file
 
             # Make an artifact
@@ -841,23 +851,16 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     wsu_info = MSWExtractor.startup_extractor.parse_startup_info(
                         self.temp_wsu_path)
                 except Exception as e:
-                    self.log(
-                        Level.INFO, "Python ERROR at file: " + file.getName())
-                    self.log(Level.INFO, "Python ERROR: " +
-                             str(e) + " at file: " + file.getName())
+                    self.log(Level.INFO, "Python ERROR at file: " + file.getName())
+                    self.log(Level.INFO, "Python ERROR: " + str(e) + " at file: " + file.getName())
                     return IngestModule.ProcessResult.OK
                 except JavaException as e:
-                    self.log(Level.INFO, "Java ERROR: " +
-                             e.getMessage() + " at file: " + file.getName())
+                    self.log(Level.INFO, "Java ERROR: " + e.getMessage() + " at file: " + file.getName())
                     return IngestModule.ProcessResult.OK
-                self.log(
-                    Level.INFO, "Extracted wsu file of id " + str(file.getId()))
-                self.log(Level.INFO, "wsu info size: " +
-                         str(len(wsu_info)))
+                self.log(Level.INFO, "WSU info size: " + str(len(wsu_info)))
                 
                 for process in wsu_info:
-                    art = file.newArtifact(
-                            self.art_windows_startup_info.getTypeID())
+                    art = file.newArtifact(self.art_windows_startup_info.getTypeID())
 
 
                     art.addAttribute(BlackboardAttribute(
@@ -904,17 +907,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
                                         self.art_windows_startup_info, None))
                 os.remove(self.temp_wsu_path)
-            else:
-                self.log(Level.INFO, "WSU pls work " + str(file_name) + '    ' + str(self.wsu_patt.match(file_name)))
-                                                                                  
-           
-            
 
         return IngestModule.ProcessResult.OK
 
     # Where any shutdown code is run and resources are freed.
     def shutDown(self):
-       
         elapsed_time = time.time() - self.start_time
         self.log(Level.INFO, "LFA execution time: "+str(elapsed_time))
         # Inform user of number of files found
@@ -978,6 +975,12 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettings(IngestModuleIngestJob
     def setRegexList(self, regex_list):
         self.regexList = regex_list
 
+    def getCheckWSU(self):
+        return self.checkWSU
+
+    def setCheckWSU(self, checkWSU):
+        self.checkWSU = checkWSU
+
 # UI that is shown to user for each ingest job so they can configure the job.
 
 
@@ -1022,6 +1025,10 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
     def checkBoxEventLogIPs(self, event):
         self.local_settings.setCheckLogIPs(self.checkboxLogIPs.isSelected())
         self.saveFlagSetting("checkLogIPs", self.checkboxLogIPs.isSelected())
+
+    def checkBoxEventWSU(self, event):
+        self.local_settings.setCheckWSU(self.checkboxWSU.isSelected())
+        self.saveFlagSetting("checkWSU", self.checkboxWSU.isSelected())
 
     def updateGlobalRegexList(self):
         self.local_settings.setRegexList(self.regex_list)
@@ -1089,7 +1096,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         self.labelAddRegexRegex = JLabel(" RegEx: ")
         self.labelErrorMessage = JLabel(" ")
         self.labelInfoMessage = JLabel(
-            "Checking for domain needs internet access (.log IP addresses)")
+            "Internet access is required for domain lookup (.log IPs)")
         self.labelCheckText.setEnabled(True)
         self.labelInfoMessage.setEnabled(True)
         self.labelErrorMessage.setEnabled(True)
@@ -1107,6 +1114,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
             "Dmp", actionPerformed=self.checkBoxEventDmp)
         self.checkboxLogIPs = JCheckBox(
             "Check .log IPs", actionPerformed=self.checkBoxEventLogIPs)
+        self.checkboxWSU = JCheckBox("Check Windows Startup XML", actionPerformed=self.checkBoxEventWSU)
 
         self.buttonAddRegex = JButton(
             "Add", actionPerformed=self.addRegexToList)
@@ -1135,6 +1143,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
         panelFiles.add(self.checkboxEVTx)
         self.add(panelFiles)
         self.add(self.checkboxLogIPs)
+        self.add(self.checkboxWSU)
         self.add(self.labelInfoMessage)
         gbc.fill = GridBagConstraints.HORIZONTAL
         self.panelAddRegex.add(self.labelAddRegex, gbc)
@@ -1209,6 +1218,10 @@ class LogForensicsForAutopsyFileIngestModuleWithUISettingsPanel(IngestModuleInge
                     (resultSet.getInt("checkLogIPs") > 0))
                 self.checkboxLogIPs.setSelected(
                     (resultSet.getInt("checkLogIPs") > 0))
+                self.local_settings.setCheckWSU(
+                    (resultSet.getInt("checkWSU") > 0))
+                self.checkboxWSU.setSelected(
+                    (resultSet.getInt("checkWSU") > 0))
             query = 'SELECT * FROM regexes;'
             resultSet = stmt.executeQuery(query)
             while resultSet.next():
