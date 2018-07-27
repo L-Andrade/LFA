@@ -9,11 +9,11 @@
 
 **LFA** was tested using Autopsy 4.6.0 in two different personal computers, both running Windows 10. It should also run in Linux.
 
-**findLogFilesGUI:** A file ingest module that finds log files (.evtx, .log, .dmp, .wer, .etl). In case of .wer file it creates a Reported program artifact if the .wer is valid. In case of .log file it creates an artifact for each different IP found in the .log, the number of occurences in that file and the IP type.
+**findLogFilesGUI:** A file ingest module that finds log files and saves them as artifacts (.evtx, .log, .dmp, .wer, .etl). In case of .wer file it creates a Reported program artifact if the .wer is valid. In case of .log file it creates an artifact for each different IP found in the .log, the number of occurences in that file, the IP type, the domain, and protocols found in the same line as the IP. If the user specified any RegEx, they will also be looked up by LFA and saved as artifacts (occurrences and content matched). This module also searches for Windows startup information in certain .xml log files.
 
 **reportWer:** A report module that queries the blackboard for the information that the file ingest produced and reports it to HTML, Excel and/or DFXML. The Excel format contains several charts for statistics. The report module is used to enhance the information gathered by the file ingest module.
 
-# Installation
+# Windows installation
 
 1.  Download as ZIP directly from here or from [Zenodo](https://zenodo.org/record/1295604)
 2.  Go to your Python Modules folder:
@@ -27,7 +27,7 @@
 
 # Authors
 
-LFA was developed by Luís Andrade and João Silva, two students of Computer Science at IPLeiria.
+LFA was developed by Luís Andrade and João Silva, two Computer Engineering graduates.
 Mentored by Patrício Domingues and Miguel Frade and proposed by Patrício Domingues.
 
 **Contacts:**  
