@@ -57,8 +57,8 @@ from javax.swing import BoxLayout
 
 XLS_REPORTED_HEADER_COUNT = 7
 XLS_IPS_HEADER_COUNT = 7
-XLS_REGEX_HEADER_COUNT = 3
-XLS_WSU_HEADER_COUNT = 9
+XLS_REGEX_HEADER_COUNT = 4
+XLS_WSU_HEADER_COUNT = 10
 XLS_FILES_HEADER_COUNT = 6
 WS_NAME_STATISTICS = 'Statistics'
 WS_NAME_STATISTICS_DATA = 'Raw data'
@@ -185,7 +185,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         })
         number_of_elements = data_len - data_row
         chart_width = int(round(float((480*(number_of_elements+5))/20)))
-        self.log(Level.INFO, "Num Elements: "+str(number_of_elements)+" | Width: "+str(chart_width))
         chart.set_size({'width': chart_width, 'height': 300})
 
         xls_ws_stats.insert_chart(pos_x,pos_y, chart)
@@ -240,7 +239,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # For the next lists of files, we're doing a different approach
         # We want a table with all the type of log files
         # So, we're doing a list of lists with all types of files
-        list_file_types = ['EVTx', 'ETL', 'WER', 'Dmp', 'Ad hoc logs', 'Windows Startup']
         list_art_list_files = [skCase.getBlackboardArtifacts('TSK_LFA_EVT_FILES'), skCase.getBlackboardArtifacts('TSK_LFA_WER_FILES'),
              skCase.getBlackboardArtifacts('TSK_LFA_ETL_FILES'), skCase.getBlackboardArtifacts('TSK_LFA_DMP_FILES'),
              skCase.getBlackboardArtifacts('TSK_LFA_LOG_FILES'), skCase.getBlackboardArtifacts('TSK_LFA_WIN_SU_FILES')]
@@ -248,7 +246,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # Get artifact list regarding custom RegExs
         # Had to dig in to Autopsy source code for database knowledge...
         art_list_custom_regex = skCase.getMatchingArtifacts("JOIN blackboard_artifact_types AS types ON blackboard_artifacts.artifact_type_id = types.artifact_type_id WHERE types.type_name LIKE 'TSK_LFA_CUSTOM_REGEX_%'")
-        self.log(Level.INFO, 'Got RegEx artifact list: '+str(len(art_list_custom_regex)))
 
         len_files = 0
         for art_list in list_art_list_files:
@@ -365,15 +362,15 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         art_count = 0
 
-        for i in xrange(len(list_art_list_files)):
-            if list_art_list_files[i]:
-                for artifact in list_art_list_files[i]:
+        for art_list in list_art_list_files:
+            if art_list:
+                for artifact in art_list:
                     art_count += 1
 
                     row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_files, xls_ws_files)
                     
-                    # Add file type to Excel...
-                    file_type = list_file_types[i]
+                    # Add file type
+                    file_type = artifact.getDisplayName()
                     if generateXLS:
                         xls_ws_files.write(xls_row_count,XLS_FILES_HEADER_COUNT-1, file_type)
                         xls_row_count += 1
@@ -643,13 +640,20 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 # Not required for Excel because it can be done with coordinates
                 row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_regex, xls_ws_regex)
                 
+                regex_name = artifact.getDisplayName()
                 if generateXLS:
+                    xls_ws_regex.write(xls_row_count,XLS_REGEX_HEADER_COUNT-1, regex_name)
                     xls_row_count += 1
 
                 if generateHTML:
+                    regex_name_cell = html_regex.new_tag("td")
+                    regex_name_cell.string = regex_name
+                    # Append row to table
+                    row.append(regex_name_cell)
                     # Select tag with ID regextable - 0 because report_html.select returns an array
                     table = html_regex.select("#regextable")[0]
                     table.append(row)
+
 
                 # For statistics
                 content = artifact.getAttribute(att_content_matched).getValueString()
@@ -669,7 +673,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                                                 {'columns':[
                                                     {'header': 'Pattern'},
                                                     {'header': 'Occurrences'},
-                                                    {'header': 'Log path'}
+                                                    {'header': 'Log path'},
+                                                    {'header': 'RegEx name'}
                                                 ]})
 
 
