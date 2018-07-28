@@ -55,6 +55,7 @@ from javax.swing import JCheckBox
 from javax.swing import JLabel
 from javax.swing import BoxLayout
 
+NUM_ARTIFACTS_PROGRESS = 100
 XLS_REPORTED_HEADER_COUNT = 7
 XLS_IPS_HEADER_COUNT = 7
 XLS_REGEX_HEADER_COUNT = 4
@@ -132,7 +133,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 xls_col_count += 1
 
         # Update progress bar every 10 artifacts
-        if art_count % 10 == 0:
+        if art_count % NUM_ARTIFACTS_PROGRESS == 0:
             progressBar.increment()
 
         return row
@@ -156,9 +157,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
     def insert_top20_column_chart(self,name,xls_wb,xls_ws_stats,xls_ws_stats_data,data,data_cat_col,data_val_col,pos_x,pos_y):
         data_len = len(data)
         start_cell_row = data_len-20 if data_len >= 20 else 0
-        self.insert_column_chart(name,xls_wb,xls_ws_stats,xls_ws_stats_data,data,start_cell_row,data_cat_col,data_val_col,pos_x,pos_y)
+        self.insert_histogram_chart(name,xls_wb,xls_ws_stats,xls_ws_stats_data,data,start_cell_row,data_cat_col,data_val_col,pos_x,pos_y)
 
-    def insert_column_chart(self,name,xls_wb,xls_ws_stats,xls_ws_stats_data,data,data_row,data_cat_col,data_val_col,pos_x,pos_y):
+    def insert_histogram_chart(self,name,xls_wb,xls_ws_stats,xls_ws_stats_data,data,data_row,data_cat_col,data_val_col,pos_x,pos_y,type='column'):
         list_data = [[], []]
         data_len = len(data)
 
@@ -169,7 +170,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         xls_ws_stats_data.write_column(0, data_cat_col, list_data[0])
         xls_ws_stats_data.write_column(0, data_val_col, list_data[1])
 
-        chart = xls_wb.add_chart({'type': 'column'})
+        chart = xls_wb.add_chart({'type': type})
 
         chart.set_x_axis({
             'name': name,
@@ -184,8 +185,15 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             'data_labels': {'value': True}
         })
         number_of_elements = data_len - data_row
-        chart_width = int(round(float((480*(number_of_elements+5))/20)))
-        chart.set_size({'width': chart_width, 'height': 300})
+
+        if type == 'bar':
+            chart_height = int(round(float((480*(number_of_elements+5))/20)))
+            chart_width = 480
+        else:
+            chart_width = int(round(float((480*(number_of_elements+5))/20)))
+            chart_height = 300
+
+        chart.set_size({'width': chart_width, 'height': chart_height})
 
         xls_ws_stats.insert_chart(pos_x,pos_y, chart)
 
@@ -207,6 +215,11 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         })
 
         xls_ws_stats.insert_chart(pos_x,pos_y, chart)
+
+    def add_link_to_html_report(self, report, tag, link_to):
+        link = report.select(tag)[0]
+        link['href'] = link_to
+
     # The 'baseReportDir' object being passed in is a string with the directory that reports are being stored in.   Report should go into baseReportDir + getRelativeFilePath().
     # The 'progressBar' object is of type ReportProgressPanel.
     #   See: http://sleuthkit.org/autopsy/docs/api-docs/4.4/classorg_1_1sleuthkit_1_1autopsy_1_1report_1_1_report_progress_panel.html
@@ -254,9 +267,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
 
         # Dividing by ten because progress bar shouldn't be updated too frequently
-        # So we'll update it every 10 artifacts
+        # So we'll update it every X artifacts (defined by a constant)
         # Plus 2 for 2 additional steps
-        max_progress = (ceil(total_artifact_count / 10) + 2)
+        max_progress = (ceil(total_artifact_count / NUM_ARTIFACTS_PROGRESS) + 2)
         progressBar.setMaximumProgress(int(max_progress))
 
         # Get what reports the user wants
@@ -296,28 +309,48 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             template_name_regex = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_regex.html")
             template_name_wsu = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_wsu.html")
             template_name_files = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template_files.html")
-            
+
+            # Used to link each HTML file (used later)
+            html_links = {}
+            html_links['#programslink'] =  self.getRelativeFilePath()
+            html_links['#loggedipslink'] =  self.getRelativeFilePathIPsHTML()
+            html_links['#customregexslink'] =  self.getRelativeFilePathRegExHTML()
+            html_links['#customwsulink'] =  self.getRelativeFilePathWSUHTML()
+            html_links['#fileslink'] =  self.getRelativeFilePathFilesHTML()
             # Open template HTML
             # The template has a table and a basic interface to show results
+
+            list_html_pages = []
             with open(template_name_programs) as inf:
                 txt = inf.read()
                 html_programs = bs4.BeautifulSoup(txt)
+                list_html_pages.append(html_programs)
 
             with open(template_name_ips) as inf:
                 txt = inf.read()
                 html_ips = bs4.BeautifulSoup(txt)
+                list_html_pages.append(html_ips)
 
             with open(template_name_regex) as inf:
                 txt = inf.read()
                 html_regex = bs4.BeautifulSoup(txt)
+                list_html_pages.append(html_regex)
 
             with open(template_name_wsu) as inf:
                 txt = inf.read()
                 html_wsu = bs4.BeautifulSoup(txt)
+                list_html_pages.append(html_wsu)
 
             with open(template_name_files) as inf:
                 txt = inf.read()
                 html_files = bs4.BeautifulSoup(txt)
+                list_html_pages.append(html_files)
+
+            # Link every page
+            for html_page in list_html_pages:
+                for (tag, link) in html_links.iteritems():
+                    self.add_link_to_html_report(html_page, tag, link)
+
 
         if generateXLS:
             # Get xls_file_name
@@ -333,7 +366,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         if generateDFXML:
             dfxml_path = os.path.join(baseReportDir, self.getRelativeFilePathDFXML())
-            dfxml = dfxml_writer.DFXMLWriter(self.getDescription(),Version.getName(), Version.getVersion())
+            dfxml = dfxml_writer.DFXMLWriter(self.getDescription(), Version.getName(), Version.getVersion())
         # Create counter to operate Excel
         # Start row at 1 because of headers
         xls_row_count = 1
@@ -357,7 +390,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         #  / ____ \ | || | | |     | || ||  __/\__ \    # 
         # /_/    \_\|_||_| |_|     |_||_| \___||___/    #
         #################################################
-        
+
         progressBar.updateStatusLabel("Going through all files...")
 
         art_count = 0
@@ -368,13 +401,13 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                     art_count += 1
 
                     row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_files, xls_ws_files)
-                    
+
                     # Add file type
                     file_type = artifact.getDisplayName()
                     if generateXLS:
-                        xls_ws_files.write(xls_row_count,XLS_FILES_HEADER_COUNT-1, file_type)
+                        xls_ws_files.write(xls_row_count, XLS_FILES_HEADER_COUNT-1, file_type)
                         xls_row_count += 1
-                    
+
                     if generateHTML:
                         file_type_cell = html_files.new_tag("td")
                         file_type_cell.string = file_type
@@ -390,8 +423,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         if generateXLS:
             # Start table at cell 0,0 and finish at row counter-1 (because it was incremented) and 5 (amount of headers - 1)
-            xls_ws_files.add_table(0,0,xls_row_count-1,XLS_FILES_HEADER_COUNT-1, 
-                                            {'columns':[
+            xls_ws_files.add_table(0,0,xls_row_count-1, XLS_FILES_HEADER_COUNT-1, 
+                                            {'columns' :[
                                                 {'header': 'Log size'},
                                                 {'header': 'Create date'},
                                                 {'header': 'Last modified'},
@@ -430,7 +463,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 # So that we can add more info to that row reference if required
                 # Not required for Excel because it can be done with coordinates
                 row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_programs, xls_ws_reported)
-                
+
                 # Get reported app name
                 reported_app_path = artifact.getAttribute(att_reported_app_path).getValueString()
                 # Take drive off path (ex: C:\)
@@ -451,9 +484,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
                 # Write to report
                 if generateXLS:
-                    xls_ws_reported.write(xls_row_count,XLS_REPORTED_HEADER_COUNT-1, is_detected_string)
+                    xls_ws_reported.write(xls_row_count, XLS_REPORTED_HEADER_COUNT-1, is_detected_string)
                     xls_row_count += 1
-                
+
                 if generateHTML:
                     is_detected_cell = html_programs.new_tag("td")
                     is_detected_cell.string = is_detected_string
@@ -476,7 +509,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             # Add number of artifacts to table info panel
             # Need to turn one of the ints into float so the division works
-            percentage = round((float(art_count)/files_wer_count)*100,2) if files_wer_count != 0 else 0
+            percentage = round((float(art_count)/files_wer_count)*100, 2) if files_wer_count != 0 else 0
             reported_info_str = str(art_count) + " artifacts out of " + str(files_wer_count) + " files ("+ str(percentage) + "%)"
 
             if generateHTML:
@@ -486,8 +519,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             if generateXLS:
                 # Start table at cell 0,0 and finish at row counter-1 (because it was incremented) and 5 (amount of headers - 1)
-                xls_ws_reported.add_table(0,0,xls_row_count-1,XLS_REPORTED_HEADER_COUNT-1, 
-                                                {'columns':[
+                xls_ws_reported.add_table(0, 0, xls_row_count-1, XLS_REPORTED_HEADER_COUNT-1, 
+                                                {'columns' :[
                                                     {'header': 'Program name'},
                                                     {'header': 'Event'},
                                                     {'header': 'Time of report'},
@@ -508,7 +541,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         #                 __/ |  __/ |                              #
         #                |___/  |___/                               #
         #############################################################
-        
+
         progressBar.updateStatusLabel("Going through IP artifacts now...")
 
         # Reset counters
@@ -519,13 +552,13 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             ip_dictionary = {}
 
             # Order specified below in ip_type_arr_str
-            array_ip_dicts_by_type = [{},{},{},{}, {}]
-            ip_type_arr_str = ['Public', 'Private','Reserved', 'Loopback', 'Link-local']
+            array_ip_dicts_by_type = [{}, {}, {}, {}, {}]
+            ip_type_arr_str = ['Public', 'Private', 'Reserved', 'Loopback', 'Link-local']
 
             # Order specified below in ip_version_arr_str
             array_ip_dicts_by_version = [{}, {}]
             ip_version_arr_str = ['IPv4', 'IPv6']
-            
+
             ip_file_dictionary = {}
             ipv4_occurrences = 0
             ipv6_occurrences = 0
@@ -533,7 +566,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             for art_logged_ip in art_list_logged_ips:
                 art_count += 1
                 row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, art_logged_ip, xls_row_count, html_ips, xls_ws_logged_ips)
-                
+
                 if generateXLS:
                     xls_row_count += 1
                 if generateHTML:
@@ -545,7 +578,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 # With this, we basically join the occurrences counter
                 ip_address = art_logged_ip.getAttribute(att_ip_address).getValueString()
                 ip_counter = int(art_logged_ip.getAttribute(att_ip_counter).getValueString())
-                ip_log_file = art_logged_ip.getAttribute(att_ip_log_path).getValueString()
                 ip_type = art_logged_ip.getAttribute(att_ip_type).getValueString()
                 ip_version = art_logged_ip.getAttribute(att_ip_version).getValueString()
 
@@ -556,7 +588,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
                     # Increment it in it's type dictionary
                     array_ip_dicts_by_type[ip_type_arr_str.index(ip_type)][ip_address] += ip_counter
-                   
 
                     # Add it to it's version dictionary
                     if ip_version == ip_version_arr_str[0]:
@@ -572,7 +603,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
                     # Add it to it's type dictionary
                     array_ip_dicts_by_type[ip_type_arr_str.index(ip_type)][ip_address] = ip_counter
-                   
+
                     # Add it to it's version dictionary
                     if ip_version == ip_version_arr_str[0]:
                         ipv4_occurrences += ip_counter
@@ -598,8 +629,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             if generateXLS:
                 # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
-                xls_ws_logged_ips.add_table(0,0,xls_row_count-1,XLS_IPS_HEADER_COUNT-1, 
-                                                {'columns':[
+                xls_ws_logged_ips.add_table(0, 0, xls_row_count-1, XLS_IPS_HEADER_COUNT-1, 
+                                                {'columns': [
                                                     {'header': 'Type'},
                                                     {'header': 'Domain'},
                                                     {'header': 'Version'},
@@ -639,10 +670,10 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 # So that we can add more info to that row reference if required
                 # Not required for Excel because it can be done with coordinates
                 row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_regex, xls_ws_regex)
-                
+
                 regex_name = artifact.getDisplayName()
                 if generateXLS:
-                    xls_ws_regex.write(xls_row_count,XLS_REGEX_HEADER_COUNT-1, regex_name)
+                    xls_ws_regex.write(xls_row_count, XLS_REGEX_HEADER_COUNT-1, regex_name)
                     xls_row_count += 1
 
                 if generateHTML:
@@ -669,8 +700,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Add headers to XLS
             if generateXLS:
                 # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
-                xls_ws_regex.add_table(0,0,xls_row_count-1,XLS_REGEX_HEADER_COUNT-1, 
-                                                {'columns':[
+                xls_ws_regex.add_table(0, 0, xls_row_count-1, XLS_REGEX_HEADER_COUNT-1, 
+                                                {'columns': [
                                                     {'header': 'Pattern'},
                                                     {'header': 'Occurrences'},
                                                     {'header': 'Log path'},
@@ -688,10 +719,10 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             #                                                   | |     #
             #                                                   |_|     #
             #############################################################
-            
+
             if art_list_wsu:
                 progressBar.updateStatusLabel("Going through Windows Startup artifacts now...")
-                                      
+
                 # Reset counters
                 art_count = 0
                 xls_row_count = 1
@@ -703,7 +734,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                     # So that we can add more info to that row reference if required
                     # Not required for Excel because it can be done with coordinates
                     row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_wsu, xls_ws_wsu)
-                    
+
                     if generateXLS:
                         xls_row_count += 1
 
@@ -715,8 +746,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 # Add headers to XLS
                 if generateXLS:
                     # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
-                    xls_ws_wsu.add_table(0,0,xls_row_count-1,XLS_WSU_HEADER_COUNT-1, 
-                                                    {'columns':[
+                    xls_ws_wsu.add_table(0, 0, xls_row_count-1, XLS_WSU_HEADER_COUNT-1,
+                                                    {'columns': [
                                                         {'header': 'Name'},
                                                         {'header': 'PID'},
                                                         {'header': 'Started in trace sec'},
@@ -743,16 +774,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         progressBar.updateStatusLabel("Saving reports...")
 
         if generateHTML:
-            # Edit href to link each HTML page
-            ip_link = html_programs.select('#loggedipslink')[0]
-            ip_link['href'] = self.getRelativeFilePathIPsHTML()
-
-            program_link = html_ips.select('#programslink')[0]
-            program_link['href'] = self.getRelativeFilePath()
-
-            regex_link = html_programs.select('#customregexslink')[0]
-            regex_link['href'] = self.getRelativeFilePathRegExHTML()            
-
             with open(html_file_name, "w") as outf:
                 outf.write(str(html_programs))
 
@@ -785,21 +806,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             # Generate statistics charts
             xls_ws_statistics = report_xls_wb.add_worksheet(WS_NAME_STATISTICS)
             xls_ws_statistics_data = report_xls_wb.add_worksheet(WS_NAME_STATISTICS_DATA)
-            chart_event_name = report_xls_wb.add_chart({'type': 'bar'})
-
-            chart_event_name.set_x_axis({
-                'name': 'Event name occurrences',
-                'name_font': {'size': 14, 'bold': True},
-                'num_font':  {'size': 8, 'italic': True }
-            })
-
-            # An array with two arrays inside
-            event_data = [[],[]]
-
-            # Iterate over Event dictionary, sorted by ascending counter
-            for (event,counter) in sorted(event_dictionary.iteritems(), key = lambda (k,v): (v,k)):
-                event_data[0].append(event)
-                event_data[1].append(counter)
 
             # Iterate over each IP type dict
             # Add its chart to the report
@@ -815,21 +821,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 chart_name = 'Top 20 '+ ip_version_str +' IP address occurrences'
                 self.insert_top20_column_chart(chart_name,report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,array_ip_dicts_by_version[i],18+i*2,19+i*2,35,0+i*10)
 
-            event_dict_len = len(event_dictionary)
-
-            xls_ws_statistics_data.write_column(0, 2, event_data[0])
-            xls_ws_statistics_data.write_column(0, 3, event_data[1])
-
-            chart_event_name.add_series({
-                'categories': [WS_NAME_STATISTICS_DATA, 0, 2, event_dict_len, 2], 
-                'values':     [WS_NAME_STATISTICS_DATA, 0, 3, event_dict_len, 3],
-                'gap': 150,
-                'data_labels': {'value': True}
-            })
             xls_ws_statistics.write(0, 0, reported_info_str)
             xls_ws_statistics.write(1, 0, ips_info_str)
-
-            xls_ws_statistics.insert_chart(0,10, chart_event_name)
 
             programs_not_detected = len(art_list_reported_progs)-programs_detected
 
@@ -838,10 +831,11 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             self.insert_top20_column_chart('Top 20 RegEx matches',report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,dict_custom_regex,26,27,18,26)
             self.insert_top20_column_chart('Top 20 IP addresses',report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,ip_dictionary,0,1,2,0)
             self.insert_top20_column_chart('Top 20 IP address file occurrences',report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,ip_file_dictionary,6,7,18,0)
+            self.insert_histogram_chart('Event name occurrences',report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,event_dictionary,0,2,3,0,10,'bar')
 
             if not generateOnlyTop20:
-                self.insert_column_chart('IP address occurrences',report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,ip_dictionary,0,22,23,64,0)
-                self.insert_column_chart('IP address file occurrences', report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,ip_file_dictionary,0,24,25,79,0)
+                self.insert_histogram_chart('IP address occurrences',report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,ip_dictionary,0,22,23,64,0)
+                self.insert_histogram_chart('IP address file occurrences', report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,ip_file_dictionary,0,24,25,79,0)
 
             report_xls_wb.close()
             self.log(Level.INFO, "Saving Excel Report to: "+xls_file_name)
