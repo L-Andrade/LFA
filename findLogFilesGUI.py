@@ -90,6 +90,7 @@ from org.sleuthkit.datamodel import BlackboardArtifact
 from org.sleuthkit.datamodel import BlackboardAttribute
 from org.sleuthkit.datamodel import ReadContentInputStream
 from org.sleuthkit.datamodel import TskData
+from org.sleuthkit.datamodel import TskCoreException, TskException
 from org.sleuthkit.autopsy.coreutils import Logger
 from org.sleuthkit.autopsy.datamodel import ContentUtils
 from java.lang import IllegalArgumentException
@@ -610,9 +611,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 # Save the file locally in the temp folder and use file id as name to reduce collisions
                 self.temp_wer_path = os.path.join(
                     self.temp_dir + WER_FOLDER_PATH, str(file.getId()))
-                ContentUtils.writeToFile(file, File(self.temp_wer_path))
-                self.log(Level.INFO, "Copying .wer file of id " +
-                         str(file.getId()))
+                try:
+                    ContentUtils.writeToFile(file, File(self.temp_wer_path))
+                except TskCoreException as e:
+                    self.log(Level.INFO, "TSK ERROR: " + str(e))
+                    return IngestModule.ProcessResult.OK
 
                 # Get the parsed result
                 try:
@@ -696,9 +699,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 # Save the file locally in the temp folder and use file id as name to reduce collisions
                 self.temp_log_path = os.path.join(
                     self.temp_dir + LOG_FOLDER_PATH, str(file.getId()))
-                ContentUtils.writeToFile(file, File(self.temp_log_path))
-                self.log(Level.INFO, "Copying .log file of id " +
-                         str(file.getId()))
+                try:
+                    ContentUtils.writeToFile(file, File(self.temp_log_path))
+                except TskCoreException as e:
+                    self.log(Level.INFO, "TSK ERROR: " + str(e))
+                    return IngestModule.ProcessResult.OK
 
                 # Search with the custom patterns inserted by the user
                 for regex in self.art_custom_regex:
@@ -841,12 +846,13 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             #(_______)\_______)(_______)  |/       \_______/(_______/(_______/\_______)          #
             ###################################################################################### 
             if(self.wsu_patt.match(file_name) is not None):
-                self.temp_wsu_path = os.path.join(
-                    self.temp_dir + WSU_FOLDER_PATH, str(file.getId()))
-                ContentUtils.writeToFile(file, File(self.temp_wsu_path))
-                self.log(Level.INFO, "Copying startup file of id " +
-                         str(file.getId()))
-                self.log(Level.INFO, "WSU file being processed")
+                self.temp_wsu_path = os.path.join(self.temp_dir + WSU_FOLDER_PATH, str(file.getId()))
+                try:
+                    ContentUtils.writeToFile(file, File(self.temp_wsu_path))
+                except TskCoreException as e:
+                    self.log(Level.INFO, "TSK ERROR: " + str(e))
+                    return IngestModule.ProcessResult.OK
+
                 try:
                     wsu_info = MSWExtractor.startup_extractor.parse_startup_info(
                         self.temp_wsu_path)
