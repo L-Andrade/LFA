@@ -1,32 +1,3 @@
-# Sample module in the public domain. Feel free to use this as a template
-# for your modules (and you can remove this header and take complete credit
-# and liability)
-#
-# Contact: Brian Carrier [carrier <at> sleuthkit [dot] org]
-#
-# This is free and unencumbered software released into the public domain.
-#
-# Anyone is free to copy, modify, publish, use, compile, sell, or
-# distribute this software, either in source code form or as a compiled
-# binary, for any purpose, commercial or non-commercial, and by any
-# means.
-#
-# In jurisdictions that recognize copyright laws, the author or authors
-# of this software dedicate any and all copyright interest in the
-# software to the public domain. We make this dedication for the benefit
-# of the public at large and to the detriment of our heirs and
-# successors. We intend this dedication to be an overt act of
-# relinquishment in perpetuity of all present and future rights to this
-# software under copyright law.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-# OTHER DEALINGS IN THE SOFTWARE.
-
 # See http://sleuthkit.org/autopsy/docs/api-docs/4.4/index.html for documentation
 
 import os
@@ -59,7 +30,7 @@ NUM_ARTIFACTS_PROGRESS = 100
 XLS_REPORTED_HEADER_COUNT = 7
 XLS_IPS_HEADER_COUNT = 7
 XLS_REGEX_HEADER_COUNT = 4
-XLS_WSU_HEADER_COUNT = 10
+XLS_WSU_HEADER_COUNT = 11
 XLS_FILES_HEADER_COUNT = 6
 WS_NAME_STATISTICS = 'Statistics'
 WS_NAME_STATISTICS_DATA = 'Raw data'
@@ -187,7 +158,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         number_of_elements = data_len - data_row
 
         if type == 'bar':
-            chart_height = int(round(float((480*(number_of_elements+5))/20)))
+            chart_height = int(round(float((380*(number_of_elements+5))/20)))
             chart_width = 480
         else:
             chart_width = int(round(float((480*(number_of_elements+5))/20)))
@@ -252,9 +223,9 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # For the next lists of files, we're doing a different approach
         # We want a table with all the type of log files
         # So, we're doing a list of lists with all types of files
-        list_art_list_files = [skCase.getBlackboardArtifacts('TSK_LFA_EVT_FILES'), skCase.getBlackboardArtifacts('TSK_LFA_WER_FILES'),
-             skCase.getBlackboardArtifacts('TSK_LFA_ETL_FILES'), skCase.getBlackboardArtifacts('TSK_LFA_DMP_FILES'),
-             skCase.getBlackboardArtifacts('TSK_LFA_LOG_FILES'), skCase.getBlackboardArtifacts('TSK_LFA_WIN_SU_FILES')]
+        list_art_list_files = [skCase.getBlackboardArtifacts('TSK_LFA_EVT_FILE'), skCase.getBlackboardArtifacts('TSK_LFA_WER_FILE'),
+             skCase.getBlackboardArtifacts('TSK_LFA_ETL_FILE'), skCase.getBlackboardArtifacts('TSK_LFA_DMP_FILE'),
+             skCase.getBlackboardArtifacts('TSK_LFA_LOG_FILE'), skCase.getBlackboardArtifacts('TSK_LFA_WIN_SU_FILE')]
 
         # Get artifact list regarding custom RegExs
         # Had to dig in to Autopsy source code for database knowledge...
@@ -757,7 +728,8 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                                                         {'header': 'CPU usage'},
                                                         {'header': 'Parent PID'},
                                                         {'header': 'Parent start time'},
-                                                        {'header': 'Parent name'}
+                                                        {'header': 'Parent name'},
+                                                        {'header': 'Log path'}
                                                     ]})
 
         #########################################################################

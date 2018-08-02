@@ -1,41 +1,4 @@
-# Sample module in the public domain. Feel free to use this as a template
-# for your modules (and you can remove this header and take complete credit
-# and liability)
-#
-# Contact: Brian Carrier [carrier <at> sleuthkit [dot] org]
-#
-# This is free and unencumbered software released into the public domain.
-#
-# Anyone is free to copy, modify, publish, use, compile, sell, or
-# distribute this software, either in source code form or as a compiled
-# binary, for any purpose, commercial or non-commercial, and by any
-# means.
-#
-# In jurisdictions that recognize copyright laws, the author or authors
-# of this software dedicate any and all copyright interest in the
-# software to the public domain. We make this dedication for the benefit
-# of the public at large and to the detriment of our heirs and
-# successors. We intend this dedication to be an overt act of
-# relinquishment in perpetuity of all present and future rights to this
-# software under copyright law.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-# OTHER DEALINGS IN THE SOFTWARE.
-
-
-# Ingest module for Autopsy with GUI
-#
-# Difference between other modules in this folder is that it has a GUI
-# for user options.  This is not needed for very basic modules. If you
-# don't need a configuration UI, start with the other sample module.
-#
 # See http://sleuthkit.org/autopsy/docs/api-docs/4.4/index.html for documentation
-
 
 import jarray
 import inspect
@@ -95,8 +58,8 @@ from org.sleuthkit.autopsy.coreutils import Logger
 from org.sleuthkit.autopsy.datamodel import ContentUtils
 from java.lang import IllegalArgumentException
 
-WER_FOLDER_PATH = "\\Wers"
-LOG_FOLDER_PATH = "\\StandardLogs"
+WER_FOLDER_PATH = "\\WERs"
+LOG_FOLDER_PATH = "\\AdhocLogs"
 WSU_FOLDER_PATH = "\\WindowsStartupInfo"
 DB_PATH = "\\guiSettings.db"
 
@@ -114,7 +77,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUIFactory(IngestModuleFactoryAda
         return "This module searchs for certain log files."
 
     def getModuleVersionNumber(self):
-        return "1.3"
+        return "1.4"
 
     def getDefaultIngestJobSettings(self):
         return LogForensicsForAutopsyFileIngestModuleWithUISettings()
@@ -163,14 +126,44 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             return "Reserved"
         return "Public"
 
-    def create_artifact(self, logDesc, art_name, art_desc, skCase):
+    def create_temp_directory(self, dir):
         try:
-            self.log(Level.INFO, logDesc)
+            os.mkdir(self.temp_dir + dir)
+        except:
+            self.log(Level.INFO, "ERROR: " + dir + " directory already exists")
+
+    def create_artifact_type(self, art_name, art_desc, skCase):
+        try:
             return skCase.addBlackboardArtifactType(
                 art_name, art_desc)
         except:
-            self.log(Level.INFO, "Artifacts creation error, type ==> " + art_desc)
-            return skCase.getArtifactType(art_name)
+            self.log(Level.INFO, "ERROR creating artifact type: " + art_desc)
+        return skCase.getArtifactType(art_name)
+
+    def create_attribute_type(self, att_name, type, att_desc, skCase):
+        try:
+            return skCase.addArtifactAttributeType(att_name, type, att_desc)
+        except:
+            self.log(Level.INFO, "ERROR creating attribute type: " + att_desc)
+        return skCase.getAttributeType(att_name)
+
+    def create_invalid_wer_artifact(self, blackboard, file, file_path, reason):
+        art = file.newArtifact(self.art_invalid_wer_file.getTypeID())
+
+        # Register case file path
+        art.addAttribute(BlackboardAttribute(
+            self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file_path))
+        # Add artifact to Blackboard
+        try:
+            # Index the artifact for keyword search
+            blackboard.indexArtifact(art)
+        except Blackboard.BlackboardException as e:
+            self.log(Level.SEVERE, "Error indexing artifact " +
+                     art.getDisplayName())
+        # Fire an event to notify the UI and others that there is a new log artifact
+        IngestServices.getInstance().fireModuleDataEvent(
+            ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
+                            self.art_windows_startup_info, None))
 
     # Where any setup and configuration is done
     def startUp(self, context):
@@ -190,287 +183,98 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.checkLog = self.local_settings.getCheckLog()
 
         # Create new artifact types
-        self.art_log_file = self.create_artifact(
-            "Create new Artifact Log File", "TSK_LFA_LOG_FILES", "Ad hoc log files", skCase)
-        self.art_reported_program = self.create_artifact(
-            "Create new Artifact Reported Programs", "TSK_LFA_REPORTED_PROGRAMS", "Reported programs", skCase)
-        self.art_logged_ip = self.create_artifact(
-            "Create new Artifact Logged IP", "TSK_LFA_LOG_FILE_IP", "Logged IP addresses", skCase)
-        self.art_etl_file = self.create_artifact(
-            "Create new Artifact ETL File", "TSK_LFA_ETL_FILES", "Event Trace Log files", skCase)
-        self.art_dmp_file = self.create_artifact(
-            "Create new Artifact Dmp File", "TSK_LFA_DMP_FILES", "Dmp files", skCase)
-        self.art_evt_file = self.create_artifact(
-            "Create new Artifact EVT File", "TSK_LFA_EVT_FILES", "EVT/EVTX files", skCase)
-        self.art_wer_file = self.create_artifact(
-            "Create new Artifact WER File", "TSK_LFA_WER_FILES", "WER files", skCase)
-        self.art_windows_startup_file = self.create_artifact(
-            "Create new Artifact Windows Startup File", "TSK_LFA_WIN_SU_FILES", "Startup info files", skCase)
-        self.art_windows_startup_info = self.create_artifact(
-            "Create new Artifact Windows Startup File", "TSK_LFA_WIN_SU_INFO", "Startup processed info", skCase)
+        self.art_log_file = self.create_artifact_type("TSK_LFA_LOG_FILE", "Ad hoc log files", skCase)
+        self.art_reported_program = self.create_artifact_type("TSK_LFA_REPORTED_PROGRAMS", "Reported programs", skCase)
+        self.art_logged_ip = self.create_artifact_type("TSK_LFA_LOG_FILE_IP", "Logged IP addresses", skCase)
+        self.art_etl_file = self.create_artifact_type("TSK_LFA_ETL_FILE", "Event Trace Log files", skCase)
+        self.art_dmp_file = self.create_artifact_type("TSK_LFA_DMP_FILE", "Dmp files", skCase)
+        self.art_evt_file = self.create_artifact_type("TSK_LFA_EVT_FILE", "EVT/EVTX files", skCase)
+        self.art_wer_file = self.create_artifact_type( "TSK_LFA_WER_FILE", "WER files", skCase)
+        self.art_windows_startup_file = self.create_artifact_type("TSK_LFA_WIN_SU_FILE", "Startup info files", skCase)
+        self.art_windows_startup_info = self.create_artifact_type("TSK_LFA_WIN_SU_INFO", "Startup processed info", skCase)
+        self.art_invalid_wer_file = self.create_artifact_type("TSK_LFA_INVALID_WER_FILE", "Invalid WER files", skCase)
 
+        # Custom RegEx artifacts
         self.art_custom_regex = {}
         for idx, regex in enumerate(self.local_settings.getRegexList().toArray()):
             if(regex.active):
-                self.art_custom_regex[regex.regex] = self.create_artifact(
-                    "Create new Artifact for custom regex :" + regex.name, "TSK_LFA_CUSTOM_REGEX_"+str(idx), regex.name, skCase)
+                self.art_custom_regex[regex.regex] = self.create_artifact_type("TSK_LFA_CUSTOM_REGEX_"+str(idx), regex.name, skCase)
 
-        # Create the attribute type Log size, if it already exists, catch error
-        # Log size shows the size of the file in bytes
-        try:
-            self.att_log_size = skCase.addArtifactAttributeType(
-                'TSK_LFA_LOG_SIZE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Log size (B)")
-        except:
-            self.log(Level.INFO, "Error creating attribute Log size")
+        # Create attribute types
+        self.att_log_size = self.create_attribute_type('TSK_LFA_LOG_SIZE',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Log size (B)", skCase)
 
-        # Create the attribute type Access time, if it already exists, catch error
-        try:
-            self.att_access_time = skCase.addArtifactAttributeType(
-                'TSK_LFA_ACCESS_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "Last access")
-        except:
-            self.log(Level.INFO, "Error creating attribute Access time")
+        self.att_access_time = self.create_attribute_type('TSK_LFA_ACCESS_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "Last access", skCase)
 
-        # Create the attribute type Modified time, if it already exists, catch error
-        try:
-            self.att_modified_time = skCase.addArtifactAttributeType(
-                'TSK_LFA_MODIFIED_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "Last modified")
-        except:
-            self.log(Level.INFO, "Error creating attribute Modified time")
+        self.att_modified_time = self.create_attribute_type('TSK_LFA_MODIFIED_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "Last modified", skCase)
 
-        # Create the attribute type Created time, if it already exists, catch error
-        try:
-            self.att_created_time = skCase.addArtifactAttributeType(
-                'TSK_LFA_CREATED_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "Create date")
-        except:
-            self.log(Level.INFO, "Error creating attribute Created time")
+        self.att_created_time = self.create_attribute_type('TSK_LFA_CREATED_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "Create date", skCase)
 
-        # Create the attribute type Case file path, if it already exists, catch error
-        try:
-            self.att_case_file_path = skCase.addArtifactAttributeType(
-                'TSK_LFA_CASE_FILE_PATH', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "File path (case)")
-        except:
-            self.log(Level.INFO, "Error creating attribute Case file path")
+        self.att_case_file_path = self.create_attribute_type('TSK_LFA_CASE_FILE_PATH', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "File path (case)", skCase)
 
-        # Create the attribute type App path, if it already exists, catch error
-        try:
-            self.att_app_path = skCase.addArtifactAttributeType(
-                'TSK_LFA_APP_PATH', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "App path")
-        except:
-            self.log(Level.INFO, "Error creating attribute App path")
+        self.att_app_path = self.create_attribute_type('TSK_LFA_APP_PATH', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "App path", skCase)
 
-        # Create the attribute type App name, if it already exists, catch error
-        try:
-            self.att_app_name = skCase.addArtifactAttributeType(
-                'TSK_LFA_APP_NAME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "App name")
-        except:
-            self.log(Level.INFO, "Error creating attribute App name")
+        self.att_app_name = self.create_attribute_type('TSK_LFA_APP_NAME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "App name", skCase)
 
-        # Create the attribute type Event name, which is the FriendlyEventName in a WER file, if it already exists, catch error
-        try:
-            self.att_event_name = skCase.addArtifactAttributeType(
-                'TSK_LFA_EVENT_NAME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Event name")
-        except:
-            self.log(Level.INFO, "Error creating attribute Event name")
+        self.att_event_name = self.create_attribute_type('TSK_LFA_EVENT_NAME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Event name", skCase)
 
-        # Create the attribute type Event time, which is a FILETIME from the time the error occurred, if it already exists, catch error
-        try:
-            self.att_event_time = skCase.addArtifactAttributeType(
-                'TSK_LFA_EVENT_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Event time")
-        except:
-            self.log(Level.INFO, "Error creating attribute Event time")
+        self.att_event_time = self.create_attribute_type('TSK_LFA_EVENT_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Event time", skCase)
 
-        # Create the attribute type Dump files, which is a list of .dmp files referenced in the .wer file
-        try:
-            self.att_dump_files = skCase.addArtifactAttributeType(
-                'TSK_LFA_DUMP_FILES', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Dump files")
-        except:
-            self.log(Level.INFO, "Error creating attribute Dump files")
+        self.att_dump_files = self.create_attribute_type('TSK_LFA_DUMP_FILES', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Dump files", skCase)
 
-        # Create the attribute type IP, which is an IP address
-        try:
-            self.att_ip_address = skCase.addArtifactAttributeType(
-                'TSK_LFA_IP_ADDRESS', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "IP address")
-        except:
-            self.log(Level.INFO, "Error creating attribute IP address")
+        self.att_ip_address = self.create_attribute_type('TSK_LFA_IP_ADDRESS', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "IP address", skCase)
 
-        # Create the attribute type Occurrences, which means how many times an IP was seen in a file
-        try:
-            self.att_ip_counter = skCase.addArtifactAttributeType(
-                'TSK_LFA_IP_COUNTER', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Occurrences")
-        except:
-            self.log(Level.INFO, "Error creating attribute IP counter")
+        self.att_ip_counter = self.create_attribute_type('TSK_LFA_IP_COUNTER', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Occurrences", skCase)
 
-        # Create the attribute type Protocol, which means if a protocol was found associated to the IP
-        try:
-            self.att_ip_protocol = skCase.addArtifactAttributeType(
-                'TSK_LFA_IP_PROTOCOL', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Protocol")
-        except:
-            self.log(Level.INFO, "Error creating attribute IP protocol")
+        self.att_ip_protocol = self.create_attribute_type('TSK_LFA_IP_PROTOCOL', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Protocol", skCase)
 
-        # Create the attribute type IP type, which says if the IP is public or private
-        try:
-            self.att_ip_type = skCase.addArtifactAttributeType(
-                'TSK_LFA_IP_TYPE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Type")
-        except:
-            self.log(Level.INFO, "Error creating attribute IP type")
+        self.att_ip_type = self.create_attribute_type('TSK_LFA_IP_TYPE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Type", skCase)
 
-        # Create the attribute type IP version, which says if the IP is ipv4 or ipv6
-        try:
-            self.att_ip_version = skCase.addArtifactAttributeType(
-                'TSK_LFA_IP_VERSION', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Version")
-        except:
-            self.log(Level.INFO, "Error creating attribute IP Version")
+        self.att_ip_version = self.create_attribute_type('TSK_LFA_IP_VERSION', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Version", skCase)
 
-        # Create the attribute type IP domain, which says IP's current domain (if possible)
-        try:
-            self.att_ip_domain = skCase.addArtifactAttributeType(
-                'TSK_LFA_IP_DOMAIN', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Domain")
-        except:
-            self.log(Level.INFO, "Error creating attribute IP Domain")
+        self.att_ip_domain = self.create_attribute_type('TSK_LFA_IP_DOMAIN', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Domain", skCase)
 
-        # Create the attribute type Windows version, which says the Windows version of the image at the time of report
-        try:
-            self.att_windows_ver = skCase.addArtifactAttributeType(
-                'TSK_LFA_WINDOWS_VERSION', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Windows version")
-        except:
-            self.log(Level.INFO, "Error creating attribute Windows version")
+        self.att_windows_ver = self.create_attribute_type('TSK_LFA_WINDOWS_VERSION', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Windows version", skCase)
 
-        # Create custom match content
-        try:
-            self.att_custom_match = skCase.addArtifactAttributeType(
-                'TSK_LFA_CUSTOM_MATCH', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Content matched")
-        except:
-            self.log(Level.INFO, "Error creating attribute custom match")
+        self.att_custom_match = self.create_attribute_type('TSK_LFA_CUSTOM_MATCH', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Content matched", skCase)
 
-         # Create custom match content
-        try:
-            self.att_wsu_process_name = skCase.addArtifactAttributeType(
-                'TSK_LFA_WSU_PROCESS_NAME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Name")
-        except:
-            self.log(Level.INFO, "Error creating attribute wsu process name")
+        self.att_wsu_process_name = self.create_attribute_type('TSK_LFA_WSU_PROCESS_NAME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Name", skCase)
 
-        try:
-            self.att_wsu_pid = skCase.addArtifactAttributeType(
-                'TSK_LFA_WSU_PID', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "PID")
-        except:
-            self.log(Level.INFO, "Error creating attribute wsu pid")
+        self.att_wsu_pid = self.create_attribute_type('TSK_LFA_WSU_PID', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "PID", skCase)
 
-        try:
-            self.att_wsu_sits = skCase.addArtifactAttributeType(
-                'TSK_LFA_WSU_SITS', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Started In Trace Sec")
-        except:
-            self.log(Level.INFO, "Error creating attribute wsu sits")
+        self.att_wsu_sits = self.create_attribute_type('TSK_LFA_WSU_SITS', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Started in trace sec", skCase)
 
-        try:
-            self.att_wsu_start_time = skCase.addArtifactAttributeType(
-                'TSK_LFA_WSU_START_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Start time")
-        except:
-            self.log(Level.INFO, "Error creating attribute wsu start time")
+        self.att_wsu_start_time = self.create_attribute_type('TSK_LFA_WSU_START_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Start time", skCase)
+        
+        self.att_wsu_cmd_line = self.create_attribute_type('TSK_LFA_WSU_CMD_LINE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Command line", skCase)
+        
+        self.att_wsu_disk_usage = self.create_attribute_type('TSK_LFA_WSU_DISK_USAGE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Disk usage (B)", skCase)
 
-        try:
-            self.att_wsu_cmd_line = skCase.addArtifactAttributeType(
-                'TSK_LFA_WSU_CMD_LINE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Command line")
-        except:
-            self.log(Level.INFO, "Error creating attribute wsu cmd line")
+        self.att_wsu_cpu_usage = self.create_attribute_type('TSK_LFA_WSU_CPU_USAGE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "CPU usage (ms)", skCase)
+        
+        self.att_wsu_ppid = self.create_attribute_type('TSK_LFA_WSU_PPID', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Parent PID", skCase)
 
-        try:
-            self.att_wsu_disk_usage = skCase.addArtifactAttributeType(
-                'TSK_LFA_WSU_DISK_USAGE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Disk usage in bytes")
-        except:
-            self.log(Level.INFO, "Error creating attribute wsu disk usage")
-
-        try:
-            self.att_wsu_cpu_usage = skCase.addArtifactAttributeType(
-                'TSK_LFA_WSU_CPU_USAGE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "cpu usage in microseconds")
-        except:
-            self.log(Level.INFO, "Error creating attribute wsu cpu usage")
-
-        try:
-            self.att_wsu_ppid = skCase.addArtifactAttributeType(
-                'TSK_LFA_WSU_PPID', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Parent PID")
-        except:
-            self.log(Level.INFO, "Error creating attribute wsu parent pid")
-
-        try:
-            self.att_wsu_parent_start_time = skCase.addArtifactAttributeType(
-                'TSK_LFA_WSU_PARENT_START_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Parent start time")
-        except:
-            self.log(Level.INFO, "Error creating attribute wsu parent start time")
-
-        try:
-            self.att_wsu_parent_name = skCase.addArtifactAttributeType(
-                'TSK_LFA_WSU_PARENT_NAME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Parent name")
-        except:
-            self.log(Level.INFO, "Error creating attribute wsu start time")
-
-        # Get Attributes after they are created
-        self.att_log_size = skCase.getAttributeType("TSK_LFA_LOG_SIZE")
-        self.att_created_time = skCase.getAttributeType("TSK_LFA_CREATED_TIME")
-        self.att_access_time = skCase.getAttributeType("TSK_LFA_ACCESS_TIME")
-        self.att_modified_time = skCase.getAttributeType(
-            "TSK_LFA_MODIFIED_TIME")
-        self.att_case_file_path = skCase.getAttributeType(
-            "TSK_LFA_CASE_FILE_PATH")
-        self.att_app_path = skCase.getAttributeType("TSK_LFA_APP_PATH")
-        self.att_app_name = skCase.getAttributeType("TSK_LFA_APP_NAME")
-        self.att_event_name = skCase.getAttributeType("TSK_LFA_EVENT_NAME")
-        self.att_event_time = skCase.getAttributeType("TSK_LFA_EVENT_TIME")
-        self.att_dump_files = skCase.getAttributeType("TSK_LFA_DUMP_FILES")
-        self.att_ip_address = skCase.getAttributeType("TSK_LFA_IP_ADDRESS")
-        self.att_ip_counter = skCase.getAttributeType("TSK_LFA_IP_COUNTER")
-        self.att_ip_protocol = skCase.getAttributeType("TSK_LFA_IP_PROTOCOL")
-        self.att_ip_type = skCase.getAttributeType("TSK_LFA_IP_TYPE")
-        self.att_ip_version = skCase.getAttributeType("TSK_LFA_IP_VERSION")
-        self.att_ip_domain = skCase.getAttributeType("TSK_LFA_IP_DOMAIN")
-        self.att_windows_ver = skCase.getAttributeType(
-            "TSK_LFA_WINDOWS_VERSION")
-        self.att_custom_match = skCase.getAttributeType("TSK_LFA_CUSTOM_MATCH")
-
-        self.att_wsu_process_name = skCase.getAttributeType(
-            "TSK_LFA_WSU_PROCESS_NAME")
-        self.att_wsu_pid = skCase.getAttributeType("TSK_LFA_WSU_PID")
-        self.att_wsu_sits = skCase.getAttributeType("TSK_LFA_WSU_SITS")
-        self.att_wsu_start_time = skCase.getAttributeType(
-            "TSK_LFA_WSU_START_TIME")
-        self.att_wsu_cmd_line = skCase.getAttributeType("TSK_LFA_WSU_CMD_LINE")
-        self.att_wsu_disk_usage = skCase.getAttributeType(
-            "TSK_LFA_WSU_DISK_USAGE")
-        self.att_wsu_cpu_usage = skCase.getAttributeType(
-            "TSK_LFA_WSU_CPU_USAGE")
-        self.att_wsu_ppid = skCase.getAttributeType("TSK_LFA_WSU_PPID")
-        self.att_wsu_parent_start_time = skCase.getAttributeType(
-            "TSK_LFA_WSU_PARENT_START_TIME")
-        self.att_wsu_parent_name = skCase.getAttributeType(
-            "TSK_LFA_WSU_PARENT_NAME")
-
+        self.att_wsu_parent_start_time = self.create_attribute_type('TSK_LFA_WSU_PARENT_START_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Parent start time", skCase)
+        
+        self.att_wsu_parent_name = self.create_attribute_type('TSK_LFA_WSU_PARENT_NAME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Parent name", skCase)
+        
+        self.att_reason_invalid = self.create_attribute_type('TSK_LFA_INVALID_REASON', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Reason", skCase)
+        
+        # Case Temporary directory, where files will be stored
         self.temp_dir = Case.getCurrentCase().getTempDirectory()
+
+        # RegEx pattern to identify WSU files
         self.wsu_patt = re.compile(r'.*s-1-5-21-\d+-\d+\-\d+\-\d+_startupinfo\d\.xml')
+
+        # Create directories for files
         if self.checkWER:
-            # Create wer directory in temp directory, if it exists then continue on processing
-            self.log(Level.INFO, "Create .wer directory " + self.temp_dir)
-            try:
-                os.mkdir(self.temp_dir + WER_FOLDER_PATH)
-            except:
-                self.log(
-                    Level.INFO, "Wers directory already exists " + self.temp_dir)
+            self.create_temp_directory(WER_FOLDER_PATH)
 
         if self.checkLog:
-            self.log(Level.INFO, "Create .log directory " + self.temp_dir)
-            try:
-                os.mkdir(self.temp_dir + LOG_FOLDER_PATH)
-            except:
-                self.log(
-                    Level.INFO, "Logs directory already exists " + self.temp_dir)
+            self.create_temp_directory(LOG_FOLDER_PATH)
 
         if self.checkWSU:
-            self.log(
-                Level.INFO, "Create windows startup files directory " + self.temp_dir)
-            try:
-                os.mkdir(self.temp_dir + WSU_FOLDER_PATH)
-                
-            except:
-                self.log(
-                    Level.INFO, "Logs directory already exists " + self.temp_dir)
+            self.create_temp_directory(WSU_FOLDER_PATH)
+
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException("Oh No!")
 
@@ -518,19 +322,20 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             )) if skCase.getBlackboardArtifacts(self.art_windows_startup_file.getTypeID()) is not None else []
 
             # Form one big list with all artifacts
-            wer_list.extend(dmp_list)
-            wer_list.extend(evt_list)
-            wer_list.extend(log_list)
-            wer_list.extend(etl_list)
-            wer_list.extend(wsu_list)
-            artifact_list = wer_list
+            artifact_list = []
+            artifact_list.extend(wer_list)
+            artifact_list.extend(dmp_list)
+            artifact_list.extend(evt_list)
+            artifact_list.extend(log_list)
+            artifact_list.extend(etl_list)
+            artifact_list.extend(wsu_list)
 
             file_path = file.getDataSource().getName() + file.getParentPath() + file.getName()
             for artifact in artifact_list:
                 # Check if file is already an artifact
                 # If the files have the same name and parent path (this path already has the datasource), file is repeated
                 if artifact.getAttribute(self.att_case_file_path) != None and artifact.getAttribute(self.att_case_file_path).getValueString() == file_path:
-                    self.log(Level.INFO, "File is already in artifact list")
+                    self.log(Level.INFO, "File is already in artifact list "+file_path)
                     return IngestModule.ProcessResult.OK
 
             self.filesFound += 1
@@ -619,26 +424,28 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
                 # Get the parsed result
                 try:
+                    # Check if WER file is valid
+                    if not MSWExtractor.wer_extractor.is_file_wer(self.temp_wer_path):
+                        # Add Invalid WER file artifact
+                        self.create_invalid_wer_artifact(blackboard, file, file_path, "Invalid report")
+
+                        return IngestModule.ProcessResult.OK
+
+                    # If valid, get the information
                     wer_info = MSWExtractor.wer_extractor.extract_default_keys(
                         self.temp_wer_path)
-                    self.log(
-                        Level.INFO, "Extracted .wer file of id " + str(file.getId()))
                 except (Exception, JavaException) as e:
-                    self.log(
-                        Level.INFO, "ERROR: Extracting .wer of Id (" + str(file.getId())+"): "+str(e))
+                    # Add Invalid WER file artifact
+                    self.create_invalid_wer_artifact(blackboard, file, file_path, "Unparseable report")
                     return IngestModule.ProcessResult.OK
 
                 # Create new program artifact if .wer file is valid
                 reported_art = file.newArtifact(
                     self.art_reported_program.getTypeID())
-                self.log(
-                    Level.INFO, "Created new artifact of type art_reported_program for file of id " + str(file.getId()))
 
                 # Add normal attributes to artifact
                 reported_art.addAttribute(BlackboardAttribute(
                     self.att_app_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['AppName'])))
-                self.log(
-                    Level.INFO, "Copying 1st att for .wer file of id " + str(file.getId()))
 
                 reported_art.addAttribute(BlackboardAttribute(
                     self.att_event_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(wer_info['FriendlyEventName'])))
@@ -655,8 +462,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 # Adding dump file search result
                 dmp = MSWExtractor.wer_extractor.find_dmp_files(
                     self.temp_wer_path)
-                self.log(
-                    Level.INFO, "Extracted dump files names from .wer file of id " + str(file.getId()))
 
                 if not dmp or "Error" in dmp:
                     dmp = "None"
@@ -665,8 +470,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
                 reported_art.addAttribute(BlackboardAttribute(
                     self.att_dump_files, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, dmp))
-                self.log(
-                    Level.INFO, "Copying 4th att for .wer file of id " + str(file.getId()))
 
                 # Add artifact to Blackboard
                 try:
@@ -675,8 +478,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 except Blackboard.BlackboardException as e:
                     self.log(Level.SEVERE, "Error indexing artifact " +
                              reported_art.getDisplayName())
-                self.log(
-                    Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
 
                 # Fire an event to notify the UI and others that there is a new log artifact
                 IngestServices.getInstance().fireModuleDataEvent(
@@ -708,13 +509,10 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 # Search with the custom patterns inserted by the user
                 for regex in self.art_custom_regex:
                     # Get the parsed result
-                    self.log(Level.INFO, "Regex pattern " + str(regex))
                     try:
                         log_info = logextractor.log_extractor.extract_custom_regex(
                             self.temp_log_path, regex)
                     except Exception as e:
-                        self.log(
-                            Level.INFO, "Python ERROR at file: " + file.getName())
                         self.log(Level.INFO, "Python ERROR: " +
                                  str(e) + " at file: " + file.getName())
                         return IngestModule.ProcessResult.OK
@@ -722,11 +520,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         self.log(Level.INFO, "Java ERROR: " +
                                  e.getMessage() + " at file: " + file.getName())
                         return IngestModule.ProcessResult.OK
-
-                    self.log(
-                        Level.INFO, "Extracted .log file of id " + str(file.getId()))
-                    self.log(Level.INFO, "Log info size: " +
-                             str(len(log_info)))
 
                     for occurrence, counter in log_info.iteritems():
                         art = file.newArtifact(
@@ -746,8 +539,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         except Blackboard.BlackboardException as e:
                             self.log(Level.SEVERE, "Error indexing artifact " +
                                      art.getDisplayName())
-                        self.log(
-                            Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
                         # Fire an event to notify the UI and others that there is a new log artifact
                         IngestServices.getInstance().fireModuleDataEvent(
                             ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
@@ -759,8 +550,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         log_info = logextractor.log_extractor.extract_ip_addresses(
                             self.temp_log_path)
                     except (IOError, StandardError) as e:
-                        self.log(
-                            Level.INFO, "Python ERROR at file: " + file.getName())
                         self.log(Level.INFO, "Python ERROR: " +
                                  str(e) + " at file: " + file.getName())
                         return IngestModule.ProcessResult.OK
@@ -773,13 +562,9 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     # As long as it has more than one IP address registered
                     # So let's iterate over the dictionary
                     for (ip, protocol, counter) in log_info:
-                        self.log(Level.INFO, "Found IP: "+ip+" with Procotol " +
-                                 protocol+" and "+str(counter)+" occurrences")
                         # Create artifact
                         ip_art = file.newArtifact(
                             self.art_logged_ip.getTypeID())
-                        self.log(
-                            Level.INFO, "Created new artifact of type art_logged_ip for file of id " + str(file.getId()))
 
                         # Add IP type
                         ip_type = self.get_ip_type(ip)
@@ -825,8 +610,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         except Blackboard.BlackboardException as e:
                             self.log(Level.SEVERE, "Error indexing artifact " +
                                      ip_art.getDisplayName())
-                        self.log(
-                            Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
 
                         # Fire an event to notify the UI and others that there is a new log artifact
                         IngestServices.getInstance().fireModuleDataEvent(
@@ -845,7 +628,10 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             #| () () |/\____) || (___) |  | )      ___) (___| (____/\| (____/\/\____) |          #
             #(_______)\_______)(_______)  |/       \_______/(_______/(_______/\_______)          #
             ###################################################################################### 
-            if(self.wsu_patt.match(file_name) is not None):
+
+            # WSU RegEx and doesn't have -slack on the name
+            # Files ending in -slack are not readable in the same way
+            if(self.wsu_patt.match(file_name) is not None and "-slack" not in file_name):
                 self.temp_wsu_path = os.path.join(self.temp_dir + WSU_FOLDER_PATH, str(file.getId()))
                 try:
                     ContentUtils.writeToFile(file, File(self.temp_wsu_path))
@@ -857,13 +643,11 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     wsu_info = MSWExtractor.startup_extractor.parse_startup_info(
                         self.temp_wsu_path)
                 except Exception as e:
-                    self.log(Level.INFO, "Python ERROR at file: " + file.getName())
-                    self.log(Level.INFO, "Python ERROR: " + str(e) + " at file: " + file.getName())
+                    self.log(Level.INFO, "WSU Python ERROR: " + str(e) + " at file: " + file.getName())
                     return IngestModule.ProcessResult.OK
                 except JavaException as e:
-                    self.log(Level.INFO, "Java ERROR: " + e.getMessage() + " at file: " + file.getName())
+                    self.log(Level.INFO, "WSU Java ERROR: " + e.getMessage() + " at file: " + file.getName())
                     return IngestModule.ProcessResult.OK
-                self.log(Level.INFO, "WSU info size: " + str(len(wsu_info)))
                 
                 for process in wsu_info:
                     art = file.newArtifact(self.art_windows_startup_info.getTypeID())
@@ -898,7 +682,9 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
                     art.addAttribute(BlackboardAttribute(
                         self.att_wsu_parent_name, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(process.parent_name)))
-               
+                
+                    art.addAttribute(BlackboardAttribute(
+                        self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file_path))
                     # Add artifact to Blackboard
                     try:
                         # Index the artifact for keyword search
@@ -906,8 +692,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     except Blackboard.BlackboardException as e:
                         self.log(Level.SEVERE, "Error indexing artifact " +
                                  art.getDisplayName())
-                    self.log(
-                        Level.INFO, "Added artifact to blackboard for file of id " + str(file.getId()))
                     # Fire an event to notify the UI and others that there is a new log artifact
                     IngestServices.getInstance().fireModuleDataEvent(
                         ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
@@ -923,7 +707,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         # Inform user of number of files found
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                                               LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                                              str(self.filesFound) + " total files found.")
+                                              str(self.filesFound) + " total files found. Elapsed time: "+str(round(elapsed_time,1))+"s")
         ingestServices = IngestServices.getInstance().postMessage(message)
 
 # Stores the settings that can be changed for each ingest job
