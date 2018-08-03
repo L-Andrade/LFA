@@ -153,6 +153,10 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         # Register case file path
         art.addAttribute(BlackboardAttribute(
             self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file_path))
+
+        # Register reason
+        art.addAttribute(BlackboardAttribute(
+            self.att_reason_invalid, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, reason))
         # Add artifact to Blackboard
         try:
             # Index the artifact for keyword search
@@ -436,7 +440,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         self.temp_wer_path)
                 except (Exception, JavaException) as e:
                     # Add Invalid WER file artifact
-                    self.create_invalid_wer_artifact(blackboard, file, file_path, "Unparseable report")
+                    self.create_invalid_wer_artifact(blackboard, file, file_path, "Could not parse the report")
                     return IngestModule.ProcessResult.OK
 
                 # Create new program artifact if .wer file is valid
