@@ -32,6 +32,7 @@ XLS_IPS_HEADER_COUNT = 7
 XLS_REGEX_HEADER_COUNT = 4
 XLS_WSU_HEADER_COUNT = 11
 XLS_FILES_HEADER_COUNT = 6
+XLS_INVALID_WER_HEADER_COUNT = 2
 WS_NAME_STATISTICS = 'Statistics'
 WS_NAME_STATISTICS_DATA = 'Raw data'
 WS_NAME_REPORTED_PROGRAMS = 'Reported programs'
@@ -217,6 +218,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         # Get artifact lists
         art_list_reported_progs = skCase.getBlackboardArtifacts("TSK_LFA_REPORTED_PROGRAMS")
+        art_list_invalid_wer = skCase.getBlackboardArtifacts("TSK_LFA_INVALID_WER_FILE")
         art_list_logged_ips = skCase.getBlackboardArtifacts("TSK_LFA_LOG_FILE_IP")
         art_list_wsu = skCase.getBlackboardArtifacts("TSK_LFA_WIN_SU_INFO")
 
@@ -502,6 +504,41 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                                                 ]})
                 xls_ws_reported.write(xls_row_count+1, 0, reported_info_str)
 
+        # And now, for the Invalid WER files
+        # Which will be in the same XLS/HTML sheet
+        if art_list_invalid_wer:
+            progressBar.updateStatusLabel("Going through Invalid WER artifacts now...")
+
+            # Reset counters
+            art_count = 0
+            xls_row_count = len(art_list_reported_progs)+5
+
+            # Create a table row for each attribute
+            for artifact in art_list_invalid_wer:
+                art_count += 1
+                # Function returns an HTML row in case we're doing a HTML report
+                # So that we can add more info to that row reference if required
+                # Not required for Excel because it can be done with coordinates
+                row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_programs, xls_ws_reported)
+
+                if generateXLS:
+                    xls_row_count += 1
+
+                if generateHTML:
+                    # Select tag with ID invalidwers - 0 because report_html.select returns an array
+                    table = html_programs.select("#invalidwers")[0]
+                    table.append(row)
+
+            # Add headers to XLS
+            if generateXLS:
+                # Start table at the length of the number of reported programs
+                # Plus 3 because of the info string and an empty line inbetween
+                # End at xls_row_count + the length of the rep. programs list again
+                xls_ws_reported.add_table(len(art_list_reported_progs)+4, 0, xls_row_count-1, XLS_INVALID_WER_HEADER_COUNT-1,
+                                                {'columns': [
+                                                    {'header': 'File path'},
+                                                    {'header': 'Reason'}
+                                                ]})
         #############################################################
         #  _                                     _   _____  _____   #
         # | |                                   | | |_   _||  __ \  #

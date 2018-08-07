@@ -132,6 +132,18 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         except:
             self.log(Level.INFO, "ERROR: " + dir + " directory already exists")
 
+    def index_artifact(self, blackboard, artifact, artifact_type):
+        try:
+            # Index the artifact for keyword search
+            blackboard.indexArtifact(artifact)
+        except Blackboard.BlackboardException as e:
+            self.log(Level.SEVERE, "Error indexing artifact " +
+                     artifact.getDisplayName())
+        # Fire an event to notify the UI and others that there is a new log artifact
+        IngestServices.getInstance().fireModuleDataEvent(
+            ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
+                            artifact_type, None))
+
     def create_artifact_type(self, art_name, art_desc, skCase):
         try:
             return skCase.addBlackboardArtifactType(
@@ -158,16 +170,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         art.addAttribute(BlackboardAttribute(
             self.att_reason_invalid, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, reason))
         # Add artifact to Blackboard
-        try:
-            # Index the artifact for keyword search
-            blackboard.indexArtifact(art)
-        except Blackboard.BlackboardException as e:
-            self.log(Level.SEVERE, "Error indexing artifact " +
-                     art.getDisplayName())
-        # Fire an event to notify the UI and others that there is a new log artifact
-        IngestServices.getInstance().fireModuleDataEvent(
-            ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                            self.art_windows_startup_info, None))
+        self.index_artifact(blackboard, art, self.art_invalid_wer_file)
 
     # Where any setup and configuration is done
     def startUp(self, context):
@@ -393,17 +396,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file_path))
 
             # Add the file log artifact
-            try:
-                # index the artifact for keyword search
-                blackboard.indexArtifact(art)
-            except Blackboard.BlackboardException as e:
-                self.log(Level.SEVERE, "Error indexing artifact " +
-                         art.getDisplayName())
-
-            # Fire an event to notify the UI and others that there is a new log artifact
-            IngestServices.getInstance().fireModuleDataEvent(
-                ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                                generic_art, None))
+            self.index_artifact(blackboard, art, generic_art)
 
             #####################################################################################################
             #  _____                                                             _    _   __              _     #
@@ -476,17 +469,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     self.att_dump_files, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, dmp))
 
                 # Add artifact to Blackboard
-                try:
-                    # Index the artifact for keyword search
-                    blackboard.indexArtifact(reported_art)
-                except Blackboard.BlackboardException as e:
-                    self.log(Level.SEVERE, "Error indexing artifact " +
-                             reported_art.getDisplayName())
-
-                # Fire an event to notify the UI and others that there is a new log artifact
-                IngestServices.getInstance().fireModuleDataEvent(
-                    ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                                    self.art_reported_program, None))
+                self.index_artifact(blackboard, reported_art, self.art_reported_program)
                 os.remove(self.temp_wer_path)
 
             #################################################
@@ -537,16 +520,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                             self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file_path))
 
                         # Add artifact to Blackboard
-                        try:
-                            # Index the artifact for keyword search
-                            blackboard.indexArtifact(art)
-                        except Blackboard.BlackboardException as e:
-                            self.log(Level.SEVERE, "Error indexing artifact " +
-                                     art.getDisplayName())
-                        # Fire an event to notify the UI and others that there is a new log artifact
-                        IngestServices.getInstance().fireModuleDataEvent(
-                            ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                                            self.art_custom_regex[regex], None))
+                        self.index_artifact(blackboard, art, self.art_custom_regex[regex])
 
                 if self.local_settings.getCheckLogIPs():
                     # Get the parsed result
@@ -608,17 +582,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                             self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file_path))
 
                         # Add artifact to Blackboard
-                        try:
-                            # Index the artifact for keyword search
-                            blackboard.indexArtifact(ip_art)
-                        except Blackboard.BlackboardException as e:
-                            self.log(Level.SEVERE, "Error indexing artifact " +
-                                     ip_art.getDisplayName())
-
-                        # Fire an event to notify the UI and others that there is a new log artifact
-                        IngestServices.getInstance().fireModuleDataEvent(
-                            ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                                            self.art_logged_ip, None))
+                        self.index_artifact(blackboard, ip_art, self.art_logged_ip)
                 os.remove(self.temp_log_path)
 
 
@@ -689,17 +653,9 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 
                     art.addAttribute(BlackboardAttribute(
                         self.att_case_file_path, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file_path))
+
                     # Add artifact to Blackboard
-                    try:
-                        # Index the artifact for keyword search
-                        blackboard.indexArtifact(art)
-                    except Blackboard.BlackboardException as e:
-                        self.log(Level.SEVERE, "Error indexing artifact " +
-                                 art.getDisplayName())
-                    # Fire an event to notify the UI and others that there is a new log artifact
-                    IngestServices.getInstance().fireModuleDataEvent(
-                        ModuleDataEvent(LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                                        self.art_windows_startup_info, None))
+                    self.index_artifact(blackboard, art, self.art_windows_startup_info)
                 os.remove(self.temp_wsu_path)
 
         return IngestModule.ProcessResult.OK
