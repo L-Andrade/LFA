@@ -146,8 +146,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
     def create_artifact_type(self, art_name, art_desc, skCase):
         try:
-            return skCase.addBlackboardArtifactType(
-                art_name, art_desc)
+            return skCase.addBlackboardArtifactType(art_name, "LFA: " + art_desc)
         except:
             self.log(Level.INFO, "ERROR creating artifact type: " + art_desc)
         return skCase.getArtifactType(art_name)
@@ -208,7 +207,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 self.art_custom_regex[regex.regex] = self.create_artifact_type("TSK_LFA_CUSTOM_REGEX_"+str(idx), regex.name, skCase)
 
         # Create attribute types
-        self.att_log_size = self.create_attribute_type('TSK_LFA_LOG_SIZE',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Log size (B)", skCase)
+        self.att_log_size = self.create_attribute_type('TSK_LFA_LOG_SIZE',BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.LONG, "Log size (B)", skCase)
 
         self.att_access_time = self.create_attribute_type('TSK_LFA_ACCESS_TIME', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "Last access", skCase)
 
@@ -256,7 +255,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         
         self.att_wsu_disk_usage = self.create_attribute_type('TSK_LFA_WSU_DISK_USAGE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Disk usage (B)", skCase)
 
-        self.att_wsu_cpu_usage = self.create_attribute_type('TSK_LFA_WSU_CPU_USAGE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "CPU usage (ms)", skCase)
+        self.att_wsu_cpu_usage = self.create_attribute_type('TSK_LFA_WSU_CPU_USAGE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "CPU usage (us)", skCase)
         
         self.att_wsu_ppid = self.create_attribute_type('TSK_LFA_WSU_PPID', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Parent PID", skCase)
 
@@ -377,7 +376,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
             # Register log file size
             art.addAttribute(BlackboardAttribute(
-                self.att_log_size, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, str(file.getSize())))
+                self.att_log_size, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, file.getSize()))
 
             # Register creation date
             art.addAttribute(BlackboardAttribute(
@@ -433,6 +432,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         self.temp_wer_path)
                 except (Exception, JavaException) as e:
                     # Add Invalid WER file artifact
+                    self.log(Level.INFO, "Not parseable WER: " + str(e))
                     self.create_invalid_wer_artifact(blackboard, file, file_path, "Could not parse the report")
                     return IngestModule.ProcessResult.OK
 
