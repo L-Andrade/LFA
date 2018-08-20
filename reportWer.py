@@ -116,7 +116,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         source_file = skCase.getAbstractFileById(artifact.getObjectID())
         filename, file_extension = os.path.splitext(source_file.getName())
 
-        fo = dfxml.newFileObject({'filename': filename+file_extension})
+        fo = dfxml.newFileObject(params_dict={'filename': filename+file_extension})
         dfxml.addParamsToNode(fo, 'mtime', datetime.datetime.fromtimestamp(source_file.getMtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
         dfxml.addParamsToNode(fo, 'ctime', datetime.datetime.fromtimestamp(source_file.getCtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
         dfxml.addParamsToNode(fo, 'atime', datetime.datetime.fromtimestamp(source_file.getAtime()).strftime('%Y-%m-%dT%H:%M:%SZ%z'))
