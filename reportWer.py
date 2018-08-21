@@ -559,19 +559,19 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
         # Statistics variables
         ip_dictionary = {}
+
+        # Order specified below in ip_type_arr_str
+        array_ip_dicts_by_type = [{}, {}, {}, {}, {}]
+        ip_type_arr_str = ['Public', 'Private', 'Reserved', 'Loopback', 'Link-local']
+
+        # Order specified below in ip_version_arr_str
+        array_ip_dicts_by_version = [{}, {}]
+        ip_version_arr_str = ['IPv4', 'IPv6']
+
+        ip_file_dictionary = {}
+        ipv4_occurrences = 0
+        ipv6_occurrences = 0
         if art_list_logged_ips:
-
-            # Order specified below in ip_type_arr_str
-            array_ip_dicts_by_type = [{}, {}, {}, {}, {}]
-            ip_type_arr_str = ['Public', 'Private', 'Reserved', 'Loopback', 'Link-local']
-
-            # Order specified below in ip_version_arr_str
-            array_ip_dicts_by_version = [{}, {}]
-            ip_version_arr_str = ['IPv4', 'IPv6']
-
-            ip_file_dictionary = {}
-            ipv4_occurrences = 0
-            ipv6_occurrences = 0
 
             for art_logged_ip in art_list_logged_ips:
                 art_count += 1
@@ -833,7 +833,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                 self.insert_top20_column_chart(chart_name,report_xls_wb,xls_ws_statistics,xls_ws_statistics_data,array_ip_dicts_by_version[i],18+i*2,19+i*2,35,0+i*10)
 
             xls_ws_statistics.write(0, 0, reported_info_str)
-            xls_ws_statistics.write(1, 0, ips_info_str)
 
             programs_not_detected = len(art_list_reported_progs)-programs_detected
 
