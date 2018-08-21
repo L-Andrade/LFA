@@ -39,7 +39,7 @@ def extract_default_keys(path_to_file):
     try:
         for line in lines:
             split_line = line.split("=")
-            dict_wer_keys[split_line[0]] = str(split_line[1]).encode("utf-8")
+            dict_wer_keys[split_line[0]] = split_line[1]
 
         res['WindowsVersion'] = extract_windows_key(path_to_file)
     except:
@@ -106,7 +106,7 @@ def _read_file_lines(path_to_file):
         f = codecs.open(path_to_file, 'r', encoding='utf-16le')
         lines = f.readlines()
         for line in lines:
-            clean_line = line.replace('\n', '').replace('\t', '').replace('\r', '')
+            clean_line = line.strip().encode("utf-8")
             clean_lines.append(clean_line)
         f.close()
     except IOError:

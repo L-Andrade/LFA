@@ -424,7 +424,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     if not MSWExtractor.wer_extractor.is_file_wer(self.temp_wer_path):
                         # Add Invalid WER file artifact
                         self.create_invalid_wer_artifact(blackboard, file, file_path, "Invalid report")
-
                         return IngestModule.ProcessResult.OK
 
                     # If valid, get the information

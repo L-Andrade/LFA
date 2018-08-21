@@ -424,11 +424,14 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         art_count = 0
         xls_row_count = 1
 
-        if art_list_reported_progs:
-            # Statistics variables
-            event_dictionary = {}
-            programs_detected = 0
+        percentage = round((float(len(art_list_reported_progs))/files_wer_count)*100, 2) if files_wer_count != 0 and len(art_list_reported_progs) != 0 else 0
+        reported_info_str = str(len(art_list_reported_progs)) + " artifacts out of " + str(files_wer_count) + " files ("+ str(percentage) + "%)"
 
+        # Statistics variables
+        event_dictionary = {}
+        programs_detected = 0
+
+        if art_list_reported_progs:
             # Create a table row for each attribute
             for artifact in art_list_reported_progs:
                 art_count += 1
@@ -482,8 +485,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
 
             # Add number of artifacts to table info panel
             # Need to turn one of the ints into float so the division works
-            percentage = round((float(art_count)/files_wer_count)*100, 2) if files_wer_count != 0 else 0
-            reported_info_str = str(art_count) + " artifacts out of " + str(files_wer_count) + " files ("+ str(percentage) + "%)"
 
             if generateHTML:
                 # Select tag '<p>' with ID tableinfo - 0 because report_html.select returns an array
@@ -555,9 +556,10 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # Reset counters
         art_count = 0
         xls_row_count = 1
+
+        # Statistics variables
+        ip_dictionary = {}
         if art_list_logged_ips:
-            # Statistics variables
-            ip_dictionary = {}
 
             # Order specified below in ip_type_arr_str
             array_ip_dicts_by_type = [{}, {}, {}, {}, {}]
@@ -633,7 +635,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             if generateHTML:
                 # Select tag '<p>' with ID tableipsinfo - 0 because report_html.select returns an array
                 info = html_ips.select("p#tableipsinfo")[0]
-                info.string = reported_info_str
+                info.string = ips_info_str
 
             if generateXLS:
                 # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
