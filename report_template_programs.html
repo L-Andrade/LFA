@@ -31,38 +31,43 @@
     <div class="container-fluid">
         <div class="panel panel-default">
         <!-- Default panel contents -->
-            <div class="panel-heading">List of all files</div>
+            <div class="panel-heading">List of reported programs</div>
             <div class="panel-body">
                 <p id="tableinfo"></p>
             </div>
             <!-- Table -->
-            <table class="table" id="reportedinstalls">
-                <thead>
-                    <tr>
-                        <th>Program name</th>
-                        <th>Event</th>
-                        <th>Time of report</th>
-                        <th>Path to program</th>
-                        <th>Windows version</th>
-                        <th>Dump files</th>
-                        <th>Is detected</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    
-                </tbody>
-            </table>
-            <table class="table" id="invalidwers">
-                <thead>
-                    <tr>
-                        <th>File path</th>
-                        <th>Reason</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    
-                </tbody>
-            </table>
+            <div>
+                <table class="table" id="reportedinstalls">
+                    <thead>
+                        <tr>
+                            <th>Program name</th>
+                            <th>Event</th>
+                            <th>Time of report</th>
+                            <th>Path to program</th>
+                            <th>Windows version</th>
+                            <th>Dump files</th>
+                            <th>Is detected</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                    </tbody>
+                </table>
+            </div>
+            <div class="panel-heading">List of invalid WERs</div>
+            <div>
+                <table class="table" id="invalidwers">
+                    <thead>
+                        <tr>
+                            <th>File path</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                    </tbody>
+                </table>
+            </div>
         </div>
         <div>
             <p id="debug">
