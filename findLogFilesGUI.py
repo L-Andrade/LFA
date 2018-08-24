@@ -10,6 +10,7 @@ import netaddr
 import time
 import socket
 import shutil
+import threading
 
 from java.lang import System
 from java.lang import Class
@@ -58,11 +59,15 @@ from org.sleuthkit.autopsy.coreutils import Logger
 from org.sleuthkit.autopsy.datamodel import ContentUtils
 from java.lang import IllegalArgumentException
 
+# Constants
 WER_FOLDER_PATH = "\\WERs"
 LOG_FOLDER_PATH = "\\AdhocLogs"
 WSU_FOLDER_PATH = "\\WindowsStartupInfo"
 DB_PATH = "\\guiSettings.db"
 
+# Global variables
+G_num_files_found = 0
+G_one_thread_over = False
 
 class LogForensicsForAutopsyFileIngestModuleWithUIFactory(IngestModuleFactoryAdapter):
     def __init__(self):
@@ -309,34 +314,28 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             skCase = Case.getCurrentCase().getSleuthkitCase()
 
             # Get one list at a time and append them
-            wer_list = skCase.getBlackboardArtifacts(self.art_wer_file.getTypeID(
-            )) if skCase.getBlackboardArtifacts(self.art_wer_file.getTypeID()) is not None else []
-
-            dmp_list = skCase.getBlackboardArtifacts(self.art_dmp_file.getTypeID(
-            )) if skCase.getBlackboardArtifacts(self.art_dmp_file.getTypeID()) is not None else []
-
-            evt_list = skCase.getBlackboardArtifacts(self.art_evt_file.getTypeID(
-            )) if skCase.getBlackboardArtifacts(self.art_evt_file.getTypeID()) is not None else []
-
-            log_list = skCase.getBlackboardArtifacts(self.art_log_file.getTypeID(
-            )) if skCase.getBlackboardArtifacts(self.art_log_file.getTypeID()) is not None else []
-
-            etl_list = skCase.getBlackboardArtifacts(self.art_etl_file.getTypeID(
-            )) if skCase.getBlackboardArtifacts(self.art_etl_file.getTypeID()) is not None else []
-
-            wsu_list = skCase.getBlackboardArtifacts(self.art_windows_startup_file.getTypeID(
-            )) if skCase.getBlackboardArtifacts(self.art_windows_startup_file.getTypeID()) is not None else []
-
-            # Form one big list with all artifacts
-            artifact_list = []
-            artifact_list.extend(wer_list)
-            artifact_list.extend(dmp_list)
-            artifact_list.extend(evt_list)
-            artifact_list.extend(log_list)
-            artifact_list.extend(etl_list)
-            artifact_list.extend(wsu_list)
+            
+            if file_name.endswith(".wer"):
+                generic_art = self.art_wer_file
+                artifact_list = skCase.getBlackboardArtifacts(self.art_wer_file.getTypeID())
+            elif file_name.endswith(".log"):
+                generic_art = self.art_log_file
+                artifact_list = skCase.getBlackboardArtifacts(self.art_log_file.getTypeID())
+            elif file_name.endswith(".dmp"):
+                generic_art = self.art_dmp_file
+                artifact_list = skCase.getBlackboardArtifacts(self.art_dmp_file.getTypeID())
+            elif file_name.endswith(".etl"):
+                generic_art = self.art_etl_file
+                artifact_list = skCase.getBlackboardArtifacts(self.art_etl_file.getTypeID())
+            elif file_name.endswith(".evtx"):
+                generic_art = self.art_evt_file
+                artifact_list = skCase.getBlackboardArtifacts(self.art_evt_file.getTypeID())
+            elif self.wsu_patt.match(file_name):
+                generic_art = self.art_windows_startup_file
+                artifact_list = skCase.getBlackboardArtifacts(self.art_windows_startup_file.getTypeID())
 
             file_path = file.getDataSource().getName() + file.getParentPath() + file.getName()
+
             for artifact in artifact_list:
                 # Check if file is already an artifact
                 # If the files have the same name and parent path (this path already has the datasource), file is repeated
@@ -345,6 +344,13 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     return IngestModule.ProcessResult.OK
 
             self.filesFound += 1
+
+            #  Exclusive zone
+            lock = threading.Lock()
+            lock.acquire()
+            global G_num_files_found 
+            G_num_files_found += 1
+            lock.release()
 
             ########################################################
             #       _ _    __ _ _        _                         #
@@ -356,20 +362,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             #                                 __/ | |              #
             #                                |___/|_|              #
             # ######################################################
-
-            # workaround to sort in which artifact to be insterted
-            if file_name.endswith(".wer"):
-                generic_art = self.art_wer_file
-            elif file_name.endswith(".log"):
-                generic_art = self.art_log_file
-            elif file_name.endswith(".dmp"):
-                generic_art = self.art_dmp_file
-            elif file_name.endswith(".etl"):
-                generic_art = self.art_etl_file
-            elif file_name.endswith(".evtx"):
-                generic_art = self.art_evt_file
-            elif self.wsu_patt.match(file_name):
-                generic_art = self.art_windows_startup_file
 
             # Make an artifact
             art = file.newArtifact(generic_art.getTypeID())
@@ -662,12 +654,26 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
     # Where any shutdown code is run and resources are freed.
     def shutDown(self):
         elapsed_time = time.time() - self.start_time
-        self.log(Level.INFO, "LFA execution time: "+str(elapsed_time))
-        # Inform user of number of files found
+        self.log(Level.INFO, "Thread name: " + threading.current_thread().name)
+        self.log(Level.INFO, "This thread lasted: " + str(round(elapsed_time,1))+"s")
+        self.log(Level.INFO, "Files found by this thread: " + str(self.filesFound))
+
+        if G_one_thread_over:
+            return
+
+        lock = threading.Lock()
+        lock.acquire()
+
+        global G_one_thread_over
+        G_one_thread_over = True
+
+        # Inform user of number of files found and elapsed time
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                                               LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName,
-                                              str(self.filesFound) + " total files found. Elapsed time: "+str(round(elapsed_time,1))+"s")
+                                              str(G_num_files_found) + " total files found. Elapsed time: "+str(round(elapsed_time,1))+"s")
         ingestServices = IngestServices.getInstance().postMessage(message)
+
+        lock.release()
 
 # Stores the settings that can be changed for each ingest job
 # All fields in here must be serializable.  It will be written to disk.

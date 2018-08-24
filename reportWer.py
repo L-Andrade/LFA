@@ -25,7 +25,9 @@ from javax.swing import JPanel
 from javax.swing import JCheckBox
 from javax.swing import JLabel
 from javax.swing import BoxLayout
+from java.awt import Color
 
+# Constants
 NUM_ARTIFACTS_PROGRESS = 100
 XLS_REPORTED_HEADER_COUNT = 7
 XLS_IPS_HEADER_COUNT = 7
@@ -238,6 +240,12 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
             len_files += len(art_list)
         total_artifact_count = len(art_list_reported_progs) + len(art_list_logged_ips) + len(art_list_custom_regex) + len(art_list_wsu) + len_files
 
+        if total_artifact_count == 0:
+            msg = "There seem to be no LFA artifacts. Did you run the ingest module? Please cancel this report and try again after the ingest module."
+            progressBar.updateStatusLabel("WARNING: " + msg)
+            self.log(Level.SEVERE, msg)
+            progressBar.complete(ReportStatus.ERROR)
+            return
 
         # Dividing by ten because progress bar shouldn't be updated too frequently
         # So we'll update it every X artifacts (defined by a constant)
@@ -904,8 +912,12 @@ class LFA_ConfigPanel(JPanel):
     def initComponents(self):
         self.setLayout(BoxLayout(self, BoxLayout.Y_AXIS))
 
-        descriptionLabel = JLabel(" LFA - Log Forensics for Autopsy")
+        descriptionLabel = JLabel(" LFA - Log Forensics for Autopsy (Report module)")
         self.add(descriptionLabel)
+
+        warningLabel = JLabel(" WARNING: Please run the ingest module before this report module.")
+        warningLabel.setForeground(Color.RED)
+        self.add(warningLabel)
 
         self.cbGenerateExcel = JCheckBox("Generate Excel format report (sortable and with statistics)", actionPerformed=self.cbGenerateExcelActionPerformed)
         self.cbGenerateExcel.setSelected(True)
