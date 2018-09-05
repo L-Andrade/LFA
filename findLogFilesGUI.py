@@ -154,7 +154,9 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             return skCase.addBlackboardArtifactType(art_name, "LFA: " + art_desc)
         except:
             self.log(Level.INFO, "ERROR creating artifact type: " + art_desc)
-        return skCase.getArtifactType(art_name)
+        art = skCase.getArtifactType(art_name)
+        self.art_list.append(art)
+        return art
 
     def create_attribute_type(self, att_name, type, att_desc, skCase):
         try:
@@ -194,6 +196,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.checkLog = self.local_settings.getCheckLog()
 
         # Create new artifact types
+        self.art_list = []
         self.art_log_file = self.create_artifact_type("TSK_LFA_LOG_FILE", "Ad hoc log files", skCase)
         self.art_reported_program = self.create_artifact_type("TSK_LFA_REPORTED_PROGRAMS", "Reported programs", skCase)
         self.art_logged_ip = self.create_artifact_type("TSK_LFA_LOG_FILE_IP", "Logged IP addresses", skCase)
@@ -655,7 +658,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
     def shutDown(self):
         elapsed_time = time.time() - self.start_time
         self.log(Level.INFO, "Thread name: " + threading.current_thread().name)
-        self.log(Level.INFO, "This thread lasted: " + str(round(elapsed_time,1))+"s")
+        self.log(Level.INFO, "This thread lasted: " + str(round(elapsed_time, 1))+"s")
         self.log(Level.INFO, "Files found by this thread: " + str(self.filesFound))
 
         if G_one_thread_over:
@@ -666,6 +669,12 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
         global G_one_thread_over
         G_one_thread_over = True
+
+        skCase = Case.getCurrentCase().getSleuthkitCase()
+
+        for art_type in self.art_list:
+            art_count = skCase.getBlackboardArtifactsTypeCount(art_type.getTypeID())
+            self.log(Level.INFO, art_type.getDisplayName() + ": " + str(art_count) + " artifacts")
 
         # Inform user of number of files found and elapsed time
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
