@@ -727,57 +727,58 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                                                 ]})
 
 
-            #############################################################
-            # __          __ _____  _                _                  #   
-            # \ \        / // ____|| |              | |                 #
-            #  \ \  /\  / /| (___  | |_  __ _  _ __ | |_  _   _  _ __   #
-            #   \ \/  \/ /  \___ \ | __|/ _` || '__|| __|| | | || '_ \  #
-            #    \  /\  /   ____) || |_| (_| || |   | |_ | |_| || |_) | #
-            #     \/  \/   |_____/  \__|\__,_||_|    \__| \__,_|| .__/  #
-            #                                                   | |     #
-            #                                                   |_|     #
-            #############################################################
+        #############################################################
+        # __          __ _____  _                _                  #   
+        # \ \        / // ____|| |              | |                 #
+        #  \ \  /\  / /| (___  | |_  __ _  _ __ | |_  _   _  _ __   #
+        #   \ \/  \/ /  \___ \ | __|/ _` || '__|| __|| | | || '_ \  #
+        #    \  /\  /   ____) || |_| (_| || |   | |_ | |_| || |_) | #
+        #     \/  \/   |_____/  \__|\__,_||_|    \__| \__,_|| .__/  #
+        #                                                   | |     #
+        #                                                   |_|     #
+        #############################################################
 
-            if art_list_wsu:
-                progressBar.updateStatusLabel("Going through Windows Startup artifacts now...")
+        if art_list_wsu:
+            progressBar.updateStatusLabel("Going through Windows Startup artifacts now...")
 
-                # Reset counters
-                art_count = 0
-                xls_row_count = 1
+            # Reset counters
+            art_count = 0
+            xls_row_count = 1
 
-                # Create a table row for each attribute
-                for artifact in art_list_wsu:
-                    art_count += 1
-                    # Function returns an HTML row in case we're doing a HTML report
-                    # So that we can add more info to that row reference if required
-                    # Not required for Excel because it can be done with coordinates
-                    row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_wsu, xls_ws_wsu)
+            # Create a table row for each attribute
+            for artifact in art_list_wsu:
+                art_count += 1
+                # Function returns an HTML row in case we're doing a HTML report
+                # So that we can add more info to that row reference if required
+                # Not required for Excel because it can be done with coordinates
+                row = self.write_artifact_to_report(skCase, progressBar, art_count, generateHTML, generateXLS, artifact, xls_row_count, html_wsu, xls_ws_wsu)
 
-                    if generateXLS:
-                        xls_row_count += 1
-
-                    if generateHTML:
-                        # Select tag with ID regextable - 0 because report_html.select returns an array
-                        table = html_wsu.select("#wsutable")[0]
-                        table.append(row)
-
-                # Add headers to XLS
                 if generateXLS:
-                    # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
-                    xls_ws_wsu.add_table(0, 0, xls_row_count-1, XLS_WSU_HEADER_COUNT-1,
-                                                    {'columns': [
-                                                        {'header': 'Name'},
-                                                        {'header': 'PID'},
-                                                        {'header': 'Started in trace sec'},
-                                                        {'header': 'Start time'},
-                                                        {'header': 'Command line'},
-                                                        {'header': 'Disk usage'},
-                                                        {'header': 'CPU usage'},
-                                                        {'header': 'Parent PID'},
-                                                        {'header': 'Parent start time'},
-                                                        {'header': 'Parent name'},
-                                                        {'header': 'Log path'}
-                                                    ]})
+                    xls_row_count += 1
+
+                if generateHTML:
+                    # Select tag with ID regextable - 0 because report_html.select returns an array
+                    table = html_wsu.select("#wsutable")[0]
+                    table.append(row)
+                    self.log(Level.INFO, "NUMBER OF ARTIFACTS FROM THE  WSU LIST: "+html_file_name)
+
+            # Add headers to XLS
+            if generateXLS:
+                # Start table at cell 0,0 and finish at row counter and 5 (amount of headers - 1)
+                xls_ws_wsu.add_table(0, 0, xls_row_count-1, XLS_WSU_HEADER_COUNT-1,
+                                                {'columns': [
+                                                    {'header': 'Name'},
+                                                    {'header': 'PID'},
+                                                    {'header': 'Started in trace sec'},
+                                                    {'header': 'Start time'},
+                                                    {'header': 'Command line'},
+                                                    {'header': 'Disk usage'},
+                                                    {'header': 'CPU usage'},
+                                                    {'header': 'Parent PID'},
+                                                    {'header': 'Parent start time'},
+                                                    {'header': 'Parent name'},
+                                                    {'header': 'Log path'}
+                                                ]})
 
         #########################################################################
         #   _____                                _____  _          _            #

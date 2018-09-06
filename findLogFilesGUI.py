@@ -11,6 +11,7 @@ import time
 import socket
 import shutil
 import threading
+import datetime
 
 from java.lang import System
 from java.lang import Class
@@ -152,7 +153,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
     def create_artifact_type(self, art_name, art_desc, skCase):
         try:
-            return skCase.addBlackboardArtifactType(art_name, "LFA: " + art_desc)
+            skCase.addBlackboardArtifactType(art_name, "LFA: " + art_desc)
         except:
             self.log(Level.INFO, "ERROR creating artifact type: " + art_desc)
         art = skCase.getArtifactType(art_name)
@@ -161,7 +162,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
     def create_attribute_type(self, att_name, type, att_desc, skCase):
         try:
-            return skCase.addArtifactAttributeType(att_name, type, att_desc)
+            skCase.addArtifactAttributeType(att_name, type, att_desc)
         except:
             self.log(Level.INFO, "ERROR creating attribute type: " + att_desc)
         return skCase.getAttributeType(att_name)
@@ -720,13 +721,13 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.log(Level.INFO, "Files found by this thread: " +
                  str(self.filesFound))
 
-        if G_one_thread_over:
-            return
-
         lock = threading.Lock()
         lock.acquire()
 
-        global G_one_thread_over
+        if G_one_thread_over:
+            lock.release()
+            return
+        global G_one_thread_over 
         G_one_thread_over = True
 
         time.sleep(2)
@@ -734,10 +735,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         skCase = Case.getCurrentCase().getSleuthkitCase()
 
         for art_type in self.art_list:
-            art_count = skCase.getBlackboardArtifactsTypeCount(
-                art_type.getTypeID())
-            self.log(Level.INFO, art_type.getDisplayName() +
-                     ": " + str(art_count) + " artifacts")
+            art_count = skCase.getBlackboardArtifactsTypeCount(art_type.getTypeID())
+            self.log(Level.INFO, art_type.getDisplayName() + ": " + str(art_count) + " artifacts")
 
         # Inform user of number of files found and elapsed time
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
@@ -748,11 +747,27 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.log(Level.INFO, "LFA File Ingest Module took "+str(round(elapsed_time, 1)
                                                                 )+"s"+" to finish and found " + str(G_num_files_found) + " files")
 
+        self.createStatisticsFile(elapsed_time)
+
         lock.release()
+    
+    def createStatisticsFile(self,elapsed_time):
+        skCase = Case.getCurrentCase().getSleuthkitCase()
+        file_stat_path = os.path.join(Case.getCurrentCase().getCaseDirectory() , "LFA_statistics.txt")
+        file_stats = open(file_stat_path,"a")
+        file_stats.write("Date and time of execution " + str(datetime.datetime.fromtimestamp(time.time()))+"\n")
+        file_stats.write("\tTotal files found: "+str(G_num_files_found)+"\n")        
+        for art_type in self.art_list:
+            art_count = skCase.getBlackboardArtifactsTypeCount(art_type.getTypeID())
+            file_stats.write("\t"+art_type.getDisplayName() + ": " + str(art_count) + " artifacts" + "\n")
+        file_stats.write("\tDuration of execution: " + str(elapsed_time)+ "\n\n")
+        file_stats.close()
+        
+
+
 
 # Stores the settings that can be changed for each ingest job
 # All fields in here must be serializable.  It will be written to disk.
-
 
 class LogForensicsForAutopsyFileIngestModuleWithUISettings(IngestModuleIngestJobSettings):
     serialVersionUID = 1L
