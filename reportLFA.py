@@ -916,9 +916,13 @@ class LFA_ConfigPanel(JPanel):
         descriptionLabel = JLabel(" LFA - Log Forensics for Autopsy (Report module)")
         self.add(descriptionLabel)
 
-        warningLabel = JLabel(" WARNING: Please run the ingest module before this report module.")
-        warningLabel.setForeground(Color.RED)
-        self.add(warningLabel)
+        skCase = Case.getCurrentCase().getSleuthkitCase()
+        art_count = len(skCase.getMatchingArtifacts("JOIN blackboard_artifact_types AS types ON blackboard_artifacts.artifact_type_id = types.artifact_type_id WHERE types.type_name LIKE 'TSK_LFA_%'"))
+
+        if art_count == 0:
+            warningLabel = JLabel(" WARNING: Please run the ingest module before this report module.")
+            warningLabel.setForeground(Color.RED)
+            self.add(warningLabel)
 
         self.cbGenerateExcel = JCheckBox("Generate Excel format report (sortable and with statistics)", actionPerformed=self.cbGenerateExcelActionPerformed)
         self.cbGenerateExcel.setSelected(True)
