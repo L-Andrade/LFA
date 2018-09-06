@@ -730,8 +730,6 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         global G_one_thread_over 
         G_one_thread_over = True
 
-        time.sleep(2)
-
         skCase = Case.getCurrentCase().getSleuthkitCase()
 
         for art_type in self.art_list:
@@ -744,8 +742,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                                               str(G_num_files_found) + " total files found. Elapsed time: "+str(round(elapsed_time, 1))+"s")
         ingestServices = IngestServices.getInstance().postMessage(message)
 
-        self.log(Level.INFO, "LFA File Ingest Module took "+str(round(elapsed_time, 1)
-                                                                )+"s"+" to finish and found " + str(G_num_files_found) + " files")
+        self.log(Level.INFO, "LFA File Ingest module took "+str(round(elapsed_time, 1)
+                                                                )+"s and found " + str(G_num_files_found) + " files")
 
         self.createStatisticsFile(elapsed_time)
 

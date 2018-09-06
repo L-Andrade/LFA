@@ -760,7 +760,6 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
                     # Select tag with ID regextable - 0 because report_html.select returns an array
                     table = html_wsu.select("#wsutable")[0]
                     table.append(row)
-                    self.log(Level.INFO, "NUMBER OF ARTIFACTS FROM THE  WSU LIST: "+html_file_name)
 
             # Add headers to XLS
             if generateXLS:
@@ -865,7 +864,7 @@ class LogForensicsForAutopsyGeneralReportModule(GeneralReportModuleAdapter):
         # Elapsed time
         elapsed_time = time.time() - start_time
 
-        self.log(Level.INFO, " LFA Report execution time: "+str(elapsed_time))
+        self.log(Level.INFO, " LFA Report module took "+str(elapsed_time) + "s")
 
         # Call this with ERROR if report was not generated
         progressBar.complete(ReportStatus.COMPLETE)
