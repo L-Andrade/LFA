@@ -12,7 +12,9 @@ import socket
 import shutil
 import threading
 import datetime
+import sys
 
+from Registry import Registry
 from java.lang import System
 from java.lang import Class
 from java.lang import Exception as JavaException
@@ -219,6 +221,8 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             "TSK_LFA_WIN_SU_INFO", "Startup processed info", skCase)
         self.art_invalid_wer_file = self.create_artifact_type(
             "TSK_LFA_INVALID_WER_FILE", "Invalid WER files", skCase)
+        self.art_wer_settings = self.create_artifact_type(
+            "TSK_LFA_WER_SETTINGS", "WER Settings", skCase)
 
         # Custom RegEx artifacts
         self.art_custom_regex = {}
@@ -228,6 +232,12 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                     "TSK_LFA_CUSTOM_REGEX_"+str(idx), regex.name, skCase)
 
         # Create attribute types
+        self.att_wer_consent_level = self.create_attribute_type(
+           'TSK_LFA_WER_CONSENT_LEVEL', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.LONG, "Consent Level", skCase)
+
+        self.att_wer_state = self.create_attribute_type(
+           'TSK_LFA_WER_STATE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.LONG, "WER system state", skCase)
+    
         self.att_log_size = self.create_attribute_type(
             'TSK_LFA_LOG_SIZE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.LONG, "Log size (B)", skCase)
 
@@ -322,6 +332,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.wsu_patt = re.compile(
             r'.*s-1-5-21-\d+-\d+\-\d+\-\d+_startupinfo\d\.xml')
 
+        self.software_hive_location = "Windows/System32/config/SOFTWARE"
         # Create directories for files
         if self.checkWER:
             self.create_temp_directory(WER_FOLDER_PATH)
@@ -344,9 +355,59 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 (file.isFile() == False)):
             return IngestModule.ProcessResult.OK
 
+
+        full_path = '/'.join( (file.getParentPath() + file.getName()).split('/')[2:])
+        #self.log(Level.INFO, full_path) 
+
         # Use blackboard class to index blackboard artifacts for keyword search
         blackboard = Case.getCurrentCase().getServices().getBlackboard()
         file_name = file.getName().lower()
+
+        if(full_path == self.software_hive_location): 
+            temp_hive_path = os.path.join(self.temp_dir , "SOFTWARE")
+            try:
+                ContentUtils.writeToFile(file, File(temp_hive_path))
+            except TskCoreException as e:
+                self.log(Level.INFO, "TSK ERROR: " + str(e))
+                return IngestModule.ProcessResult.OK
+            try:            
+                hive = Registry.Registry(temp_hive_path) 
+                consentKey = hive.open("Microsoft\\Windows\\Windows Error Reporting\\Consent")
+                for subkey in consentKey.values():
+                    if (subkey.name() == "DefaultConsent"):
+                        if(subkey.value() == 1):
+                            self.wer_consent_level = 'Always ask' 
+                        elif(subkey.value() ==2):
+                            self.wer_consent_level = 'Parameters only'
+                        elif(subkey.value() == 3):
+                            self.wer_consent_level = 'Parameters and safe data'
+                        else:
+                            self.wer_consent_level = 'All data'
+                        break
+                else:
+                        self.wer_consent_level = 'Always ask' 
+                rootKey = hive.open("Microsoft\\Windows\\Windows Error Reporting")
+                for subkey in rootKey.values():  
+                    if (subkey.name() == "Disabled"):
+                        self.wer_state = 'Disabled' if subkey.value() == 1 else 'Enabled'
+                else:
+                    self.wer_state = 'Disabled'
+                self.log(Level.INFO, "Wer consent level and state " + self.wer_consent_level + " " + self.wer_state)
+
+                art = file.newArtifact(self.art_wer_settings.getTypeID())
+
+                art.addAttribute(BlackboardAttribute(self.att_wer_consent_level, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, self.wer_consent_level))
+
+                art.addAttribute(BlackboardAttribute(self.att_wer_state, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, self.wer_state))
+
+                self.index_artifact(blackboard, art,self.art_wer_settings)
+                os.remove(self.temp_hive_path)
+            
+
+            except:
+                self.wer_consent_level = 'N/A'
+                self.wer_state = 'N/A' 
+        
 
         # Is file of certain extension AND is its checkbox checked?
         if ((file_name.endswith(".etl") and self.checkETL) or
@@ -354,7 +415,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
             (file_name.endswith(".dmp") and self.checkDmp) or
             (file_name.endswith(".evtx") and self.checkEVTx) or
             (file_name.endswith(".log") and self.checkLog) or
-                (self.wsu_patt.match(file_name) is not None and self.checkWSU)):
+            (self.wsu_patt.match(file_name) is not None and self.checkWSU)):
 
             # Get all file artifacts
             skCase = Case.getCurrentCase().getSleuthkitCase()
@@ -386,7 +447,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 artifact_list = skCase.getBlackboardArtifacts(
                     self.art_windows_startup_file.getTypeID())
 
-            file_path = file.getDataSource().getName() + file.getParentPath() + file.getName()
+            file_path = file.getParentPath() + file.getName()
 
             for artifact in artifact_list:
                 # Check if file is already an artifact
