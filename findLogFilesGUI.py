@@ -447,7 +447,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 artifact_list = skCase.getBlackboardArtifacts(
                     self.art_windows_startup_file.getTypeID())
 
-            file_path = file.getParentPath() + file.getName()
+            file_path = file.getUniquePath() + file.getName()
 
             for artifact in artifact_list:
                 # Check if file is already an artifact
