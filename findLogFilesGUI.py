@@ -355,7 +355,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 (file.isFile() == False)):
             return IngestModule.ProcessResult.OK
 
-        full_path = '/'.join( (file.getParentPath() + file.getName()).split('/')[2:])
+        full_path = (file.getParentPath() + file.getName())[1:]
 
         # Use blackboard class to index blackboard artifacts for keyword search
         blackboard = Case.getCurrentCase().getServices().getBlackboard()
@@ -389,6 +389,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 for subkey in root_key.values():  
                     if subkey.name() == "Disabled":
                         wer_state = 'Disabled' if subkey.value() == 1 else 'Enabled'
+                        break
                 else:
                     wer_state = 'Disabled'
 
