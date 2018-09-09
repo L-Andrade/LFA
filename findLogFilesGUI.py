@@ -391,7 +391,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                         wer_state = 'Disabled' if subkey.value() == 1 else 'Enabled'
                         break
                 else:
-                    wer_state = 'Disabled'
+                    wer_state = 'Enabled'
 
                 self.log(Level.INFO, "WER consent level and state " + wer_consent_key + " " + wer_state)
 
