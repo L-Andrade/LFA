@@ -222,7 +222,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         self.art_invalid_wer_file = self.create_artifact_type(
             "TSK_LFA_INVALID_WER_FILE", "Invalid WER files", skCase)
         self.art_wer_settings = self.create_artifact_type(
-            "TSK_LFA_WER_SETTINGS", "WER Settings", skCase)
+            "TSK_LFA_WER_SETTINGS", "WER Registry settings", skCase)
 
         # Custom RegEx artifacts
         self.art_custom_regex = {}
@@ -361,7 +361,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         blackboard = Case.getCurrentCase().getServices().getBlackboard()
         file_name = file.getName().lower()
 
-        if full_path == self.software_hive_location: 
+        if full_path == self.software_hive_location and self.checkWER: 
             temp_hive_path = os.path.join(self.temp_dir , "SOFTWARE")
             try:
                 ContentUtils.writeToFile(file, File(temp_hive_path))
@@ -447,7 +447,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 artifact_list = skCase.getBlackboardArtifacts(
                     self.art_windows_startup_file.getTypeID())
 
-            file_path = file.getParentPath() + file.getName()
+            file_path = file.getUniquePath() + file.getName()
 
             for artifact in artifact_list:
                 # Check if file is already an artifact
