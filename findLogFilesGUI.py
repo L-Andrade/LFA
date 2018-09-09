@@ -227,16 +227,16 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
         # Custom RegEx artifacts
         self.art_custom_regex = {}
         for idx, regex in enumerate(self.local_settings.getRegexList().toArray()):
-            if(regex.active):
+            if regex.active:
                 self.art_custom_regex[regex.regex] = self.create_artifact_type(
                     "TSK_LFA_CUSTOM_REGEX_"+str(idx), regex.name, skCase)
 
         # Create attribute types
         self.att_wer_consent_level = self.create_attribute_type(
-           'TSK_LFA_WER_CONSENT_LEVEL', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.LONG, "Consent Level", skCase)
+           'TSK_LFA_WER_CONSENT_LEVEL', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Consent Level", skCase)
 
         self.att_wer_state = self.create_attribute_type(
-           'TSK_LFA_WER_STATE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.LONG, "WER system state", skCase)
+           'TSK_LFA_WER_STATE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "WER system state", skCase)
     
         self.att_log_size = self.create_attribute_type(
             'TSK_LFA_LOG_SIZE', BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.LONG, "Log size (B)", skCase)
@@ -355,15 +355,13 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 (file.isFile() == False)):
             return IngestModule.ProcessResult.OK
 
-
         full_path = '/'.join( (file.getParentPath() + file.getName()).split('/')[2:])
-        #self.log(Level.INFO, full_path) 
 
         # Use blackboard class to index blackboard artifacts for keyword search
         blackboard = Case.getCurrentCase().getServices().getBlackboard()
         file_name = file.getName().lower()
 
-        if(full_path == self.software_hive_location): 
+        if full_path == self.software_hive_location: 
             temp_hive_path = os.path.join(self.temp_dir , "SOFTWARE")
             try:
                 ContentUtils.writeToFile(file, File(temp_hive_path))
@@ -372,46 +370,47 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                 return IngestModule.ProcessResult.OK
             try:            
                 hive = Registry.Registry(temp_hive_path) 
-                consentKey = hive.open("Microsoft\\Windows\\Windows Error Reporting\\Consent")
-                for subkey in consentKey.values():
-                    if (subkey.name() == "DefaultConsent"):
-                        if(subkey.value() == 1):
-                            self.wer_consent_level = 'Always ask' 
-                        elif(subkey.value() ==2):
-                            self.wer_consent_level = 'Parameters only'
-                        elif(subkey.value() == 3):
-                            self.wer_consent_level = 'Parameters and safe data'
+                consent_key = hive.open("Microsoft\\Windows\\Windows Error Reporting\\Consent")
+                for subkey in consent_key.values():
+                    if subkey.name() == "DefaultConsent":
+                        if subkey.value() == 1:
+                            wer_consent_key = 'Always ask' 
+                        elif subkey.value() == 2:
+                            wer_consent_key = 'Parameters only'
+                        elif subkey.value() == 3:
+                            wer_consent_key = 'Parameters and safe data'
                         else:
-                            self.wer_consent_level = 'All data'
+                            wer_consent_key = 'All data'
                         break
                 else:
-                        self.wer_consent_level = 'Always ask' 
-                rootKey = hive.open("Microsoft\\Windows\\Windows Error Reporting")
-                for subkey in rootKey.values():  
-                    if (subkey.name() == "Disabled"):
-                        self.wer_state = 'Disabled' if subkey.value() == 1 else 'Enabled'
+                        wer_consent_key = 'Always ask' 
+
+                root_key = hive.open("Microsoft\\Windows\\Windows Error Reporting")
+                for subkey in root_key.values():  
+                    if subkey.name() == "Disabled":
+                        wer_state = 'Disabled' if subkey.value() == 1 else 'Enabled'
                 else:
-                    self.wer_state = 'Disabled'
-                self.log(Level.INFO, "Wer consent level and state " + self.wer_consent_level + " " + self.wer_state)
+                    wer_state = 'Disabled'
+
+                self.log(Level.INFO, "WER consent level and state " + wer_consent_key + " " + wer_state)
 
                 art = file.newArtifact(self.art_wer_settings.getTypeID())
 
-                art.addAttribute(BlackboardAttribute(self.att_wer_consent_level, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, self.wer_consent_level))
+                art.addAttribute(BlackboardAttribute(self.att_wer_consent_level, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, wer_consent_key))
 
-                art.addAttribute(BlackboardAttribute(self.att_wer_state, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, self.wer_state))
+                art.addAttribute(BlackboardAttribute(self.att_wer_state, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, wer_state))
 
                 self.index_artifact(blackboard, art,self.art_wer_settings)
                 os.remove(self.temp_hive_path)
             
 
             except:
-                self.wer_consent_level = 'N/A'
-                self.wer_state = 'N/A' 
-        
+                wer_consent_key = 'N/A'
+                wer_state = 'N/A'
 
         # Is file of certain extension AND is its checkbox checked?
         if ((file_name.endswith(".etl") and self.checkETL) or
-            ((file_name.endswith(".wer")) and self.checkWER) or
+            (file_name.endswith(".wer") and self.checkWER) or
             (file_name.endswith(".dmp") and self.checkDmp) or
             (file_name.endswith(".evtx") and self.checkEVTx) or
             (file_name.endswith(".log") and self.checkLog) or
@@ -659,7 +658,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
                             self.att_ip_type, LogForensicsForAutopsyFileIngestModuleWithUIFactory.moduleName, ip_type))
 
                         # Add current domain
-                        if(ip_type == 'Public'):
+                        if ip_type == 'Public':
                             try:
                                 domain = socket.gethostbyaddr(ip)[0]
                                 ip_domain = 'Same as IP' if domain == ip else domain
@@ -708,7 +707,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUI(FileIngestModule):
 
             # WSU RegEx and doesn't have -slack on the name
             # Files ending in -slack are not readable in the same way
-            if(self.wsu_patt.match(file_name) is not None and "-slack" not in file_name):
+            if self.wsu_patt.match(file_name) is not None and "-slack" not in file_name:
                 self.temp_wsu_path = os.path.join(
                     self.temp_dir + WSU_FOLDER_PATH, str(file.getId()))
                 try:
