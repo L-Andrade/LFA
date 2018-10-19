@@ -86,7 +86,7 @@ class LogForensicsForAutopsyFileIngestModuleWithUIFactory(IngestModuleFactoryAda
         return "This module searchs for certain log files."
 
     def getModuleVersionNumber(self):
-        return "1.4"
+        return "1.5"
 
     def getDefaultIngestJobSettings(self):
         return LogForensicsForAutopsyFileIngestModuleWithUISettings()
